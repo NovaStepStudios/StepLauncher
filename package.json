@@ -2,7 +2,7 @@
   "name": "steplauncher",
   "version": "1.0.0",
   "description": "Launcher For Minecraft!",
-  "main": "app.js",
+  "main": "src/app.js",
   "scripts": {
     "start": "electron ."
   },
@@ -32,6 +32,6 @@
   },
   "homepage": "https://github.com/NovaStepStudios/StepLauncher#readme",
   "dependencies": {
-    "electron": "36.4.0"
+    "electron": "^36.4.0"
   }
 }
