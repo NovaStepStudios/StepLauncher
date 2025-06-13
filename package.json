@@ -1,0 +1,37 @@
+{
+  "name": "steplauncher",
+  "version": "1.0.0",
+  "description": "Launcher For Minecraft!",
+  "main": "app.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NovaStepStudios/StepLauncher.git"
+  },
+  "keywords": [
+    "Minecraft",
+    "Minecraft-Launcher-Core",
+    "Minecraft-Core-Master",
+    "Forge",
+    "Optifine",
+    "NeoForge",
+    "Fabric",
+    "Clients",
+    "Launcher",
+    "Mc",
+    "Launcher-Minecraft",
+    "Electron",
+    "App"
+  ],
+  "author": "NovaStepStudios",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/NovaStepStudios/StepLauncher/issues"
+  },
+  "homepage": "https://github.com/NovaStepStudios/StepLauncher#readme",
+  "dependencies": {
+    "electron": "36.4.0"
+  }
+}
