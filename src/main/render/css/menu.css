@@ -1,6 +1,6 @@
 @import url("./global.css");
-
-.Content{
+@import url("./panels.css");
+.ContentMenu{
     position: fixed;
     bottom: 0;
     left: 0;

@@ -1,5 +1,3 @@
-<!DOCTYPE html>
-<script src="../js/lang.js"></script>
 <style>
     *{
         outline: none;
@@ -92,65 +90,88 @@
   }
 </style>
 <style>
-    .Container{
-        -webkit-user-select: text;
-        user-select: all;
-        width: 100%;
-        height: 100%;
-        position: relative;
-    }
-    .Other-Left, .Other-Right::before{
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle,transparent 80%,#0005);
-      background-attachment: fixed;
-      z-index: 1;
-    }
-    .Other-Left,.Other-Right{
-      position: fixed;
-      top: 0;
+  .Container {
+    -webkit-user-select: text;
+    user-select: all;
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .Other-Left,
+  .Other-Right::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, transparent 80%, #0005);
+    background-attachment: fixed;
+    z-index: 1;
+  }
+
+  .Other-Left,
+  .Other-Right {
+    position: fixed;
+    top: 0;
+    width: 0%;
+    height: 100dvh;
+    padding: 0.5rem;
+    z-index: 600;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+  }
+
+  .Other-Left {
+    left: 0;
+    background-color: #272727;
+  }
+
+  .Other-Right {
+    right: 0;
+    background-color: #272727;
+  }
+
+  /* Activar panel */
+  .Other-Left.Active,
+  .Other-Right.Active {
+    width: 50%;
+    opacity: 1;
+    pointer-events: all;
+    animation: FadeIN 0.4s ease forwards;
+  }
+
+  /* Desactivar panel */
+  .Other-Left.Disabled,
+  .Other-Right.Disabled {
+    animation: FadeOUT 0.4s ease forwards;
+  }
+
+  @keyframes FadeIN {
+    0% {
       width: 0%;
-      height: 100dvh;
-      padding: 0.5rem;
-      z-index: 600;
+      opacity: 0;
     }
-    .Other-Left{
+    100% {
       width: 50%;
-      left: 0;
-      background-color: #272727;
+      opacity: 1;
     }
-    .Other-Right{
+  }
+
+  @keyframes FadeOUT {
+    0% {
       width: 50%;
-      right: 0;
-      background-color: #272727;
+      opacity: 1;
     }
-    .Other-Left.Active, .Other-Right.Active{
+    100% {
       width: 0%;
-      animation: FadeIN 1s ease-in-out forwards;
+      opacity: 0;
+      pointer-events: none;
     }
-    .Other-Left.Disabled, .Other-Right.Disabled{
-      width: 0%;
-      animation: FadeOUT 1s ease-in-out forwards;
-    }
-    @keyframes FadeIN{
-      100%{
-        width: 50%;
-      }
-    }
-    @keyframes FadeOUT{
-      0%{
-        width: 50%;
-      }
-      100%{
-        pointer-events: none;
-        opacity: 0;
-        width: 0%;
-      }
-    }
+  }
 </style>
 <style>
   .loader {
@@ -348,190 +369,189 @@
     border-left-color: #757575;
   }
 </style>
-<script>
-// ========== CONFIGURACIÓN DE NOTICIAS ==========
-const NEWS_CONTAINER_ID_MC = "NEWSMC";
-const NEWS_CONTAINER_ID_ST = "NEWSST";
-const NEWS_BATCH_SIZE = 15;
+<script async>
+  // ========== CONFIGURACIÓN DE NOTICIAS ==========
+  const NEWS_CONTAINER_ID_MC = "NEWSMC";
+  const NEWS_CONTAINER_ID_ST = "NEWSST";
+  const NEWS_BATCH_SIZE = 15;
 
-const LOADER_CLASSNAMES = [
-  ".loaderContainer",
-  ".Other-Left",
-  ".Other-Right"
-];
+  const LOADER_CLASSNAMES = [
+    ".loaderContainer",
+    ".Other-Left",
+    ".Other-Right"
+  ];
 
-const NEWS_URLS = {
-  Minecraft: "https://launchercontent.mojang.com/v2/javaPatchNotes.json",
-  StepLauncher: "https://novastep-studios.web.app/launcher/news/news.json"
-};
+  const NEWS_URLS = {
+    Minecraft: "https://launchercontent.mojang.com/v2/javaPatchNotes.json",
+    StepLauncher: "https://novastep-studios.web.app/launcher/news/news.json"
+  };
 
-let allNews = [];
-let loadedCount = 0;
-let currentNewsType = "Minecraft";
+  let allNews = [];
+  let loadedCount = 0;
+  let currentNewsType = "Minecraft";
 
-function setLoaderActive(active) {
-  LOADER_CLASSNAMES.forEach(selector => {
-    const el = document.querySelector(selector);
-    if (el) {
-      el.classList.toggle("Disabled", !active);
-      el.classList.toggle("Active", active);
+  function setLoaderActive(active) {
+    LOADER_CLASSNAMES.forEach(selector => {
+      const el = document.querySelector(selector);
+      if (el) {
+        el.classList.toggle("Disabled", !active);
+        el.classList.toggle("Active", active);
+      }
+    });
+  }
+
+  function formatDateString(dateString) {
+    if (!dateString) return "";
+    const [year, month, day] = dateString.split("-");
+    return `${day}/${month}/${year}`;
+  }
+
+  function formatFullDate(date) {
+    const d = date.getDate().toString().padStart(2, "0");
+    const m = (date.getMonth() + 1).toString().padStart(2, "0");
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  async function fetchNews(type) {
+    try {
+      const res = await fetch(NEWS_URLS[type]);
+      if (!res.ok) throw new Error("Error al cargar noticias");
+      const data = await res.json();
+
+      allNews = type === "StepLauncher"
+        ? (data.Entries || [])
+        : (data.entries || data.news || []);
+
+      loadedCount = 0;
+
+      document.getElementById(NEWS_CONTAINER_ID_MC).innerHTML = "";
+      document.getElementById(NEWS_CONTAINER_ID_ST).innerHTML = "";
+
+      renderNewsBatch();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function renderNewsBatch() {
+    const isStepLauncher = currentNewsType === "StepLauncher";
+    const containerId = isStepLauncher ? NEWS_CONTAINER_ID_ST : NEWS_CONTAINER_ID_MC;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const nextCount = Math.min(loadedCount + NEWS_BATCH_SIZE, allNews.length);
+
+    let html = "";
+    for (let i = loadedCount; i < nextCount; i++) {
+      const news = allNews[i];
+
+      if (isStepLauncher) {
+        const title = news.Title || null;
+        const date = news.Date ? formatDateString(news.Date) : null;
+        const description = news.Description || null;
+        const image = news.Image || null;
+        const links = news.Links || null;
+        let type = (news.Type || "").toLowerCase();
+
+        const validTypes = ["important", "update", "event", "info", "warning", "community", "other"];
+        const hasValidType = validTypes.includes(type);
+
+        html += `<article class="news-entry${hasValidType ? ` ${type}` : ""}">`;
+
+        if (title) html += `<h2 class="title">${title}</h2>`;
+        if (date) html += `<div class="date">${date}</div>`;
+        if (image) html += `<img src="${image}" alt="Imagen">`;
+        if (description) html += `<p class="description">${description}</p>`;
+
+        if (links && typeof links === "object") {
+          let linksHTML = "";
+          if (links.Github) linksHTML += `<a href="#" data-link="${links.Github}" class="news-link">GitHub</a> `;
+          if (links.Youtube) linksHTML += `<a href="#" data-link="${links.Youtube}" class="news-link">YouTube</a> `;
+          if (links.Instagram) linksHTML += `<a href="#" data-link="${links.Instagram}" class="news-link">Instagram</a> `;
+          if (links.NPM) linksHTML += `<a href="#" data-link="${links.NPM}" class="news-link">NPM</a> `;
+
+          if (Array.isArray(links.Other)) {
+            links.Other.forEach(link => {
+              if (link && typeof link === "string" && link.trim() !== "") {
+                linksHTML += `<a href="#" data-link="${link}" class="news-link">Otro</a> `;
+              }
+            });
+          }
+          if (linksHTML) html += `<div class="links">${linksHTML.trim()}</div>`;
+        }
+        html += `</article>`;
+      } else {
+        const dateObj = new Date(news.date || news.created_at || Date.now());
+        const formattedDate = formatFullDate(dateObj);
+        const imgUrl = news.image?.url
+          ? "https://launchercontent.mojang.com" + news.image.url
+          : (news.image || "");
+        const imgAlt = news.image?.title || news.title || "Imagen";
+
+        html += `<article>`;
+        if (news.title) html += `<h2>${news.title}</h2>`;
+        html += `<div class="date">${formattedDate}</div>`;
+        if (imgUrl) html += `<img src="${imgUrl}" alt="${imgAlt}">`;
+        if (news.shortText || news.content) html += `<p class="short-text">${news.shortText || news.content}</p>`;
+        html += `</article>`;
+      }
+    }
+
+    container.insertAdjacentHTML("beforeend", html);
+    loadedCount = nextCount;
+
+    let btn = document.getElementById("btnLoadMoreNews");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.id = "btnLoadMoreNews";
+      btn.textContent = "Cargar más noticias";
+      btn.addEventListener("click", renderNewsBatch);
+      container.after(btn);
+    }
+
+    btn.style.display = loadedCount >= allNews.length ? "none" : "inline-block";
+  }
+
+  // --- Aquí está el listener global para abrir links con electronApi ---
+  document.addEventListener("click", function (e) {
+    const target = e.target;
+    if (target.matches("a.news-link")) {
+      e.preventDefault();
+      const link = target.getAttribute("data-link");
+      if (link) {
+        if (window.electronApi && typeof window.electronApi.openLink === "function") {
+          window.electronApi.openLink(link);
+        } else {
+          console.error("No se pudo abrir el link: no existe window.electronApi.openLink");
+        }
+      }
     }
   });
-}
 
-function formatDateString(dateString) {
-  if (!dateString) return "";
-  const [year, month, day] = dateString.split("-");
-  return `${day}/${month}/${year}`;
-}
+  document.getElementById("SelectNews").addEventListener("change", async (e) => {
+    const selected = e.target.value;
+    currentNewsType = selected;
 
-function formatFullDate(date) {
-  const d = date.getDate().toString().padStart(2, "0");
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
-  const y = date.getFullYear();
-  return `${d}/${m}/${y}`;
-}
+    document.getElementById(NEWS_CONTAINER_ID_MC).classList.toggle("Disabled", selected !== "Minecraft");
+    document.getElementById(NEWS_CONTAINER_ID_ST).classList.toggle("Disabled", selected !== "StepLauncher");
 
-async function fetchNews(type) {
-  try {
-    const res = await fetch(NEWS_URLS[type]);
-    if (!res.ok) throw new Error("Error al cargar noticias");
-    const data = await res.json();
+    setLoaderActive(true);
 
-    allNews = type === "StepLauncher"
-      ? (data.Entries || [])
-      : (data.entries || data.news || []);
+    setTimeout(() => {
+      fetchNews(selected).then(() => {
+        setLoaderActive(false);
+      });
+    }, 1000);
+  });
 
-    loadedCount = 0;
+  window.addEventListener("DOMContentLoaded", () => {
+    setLoaderActive(true);
 
-    document.getElementById(NEWS_CONTAINER_ID_MC).innerHTML = "";
-    document.getElementById(NEWS_CONTAINER_ID_ST).innerHTML = "";
-
-    renderNewsBatch();
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-function renderNewsBatch() {
-  const isStepLauncher = currentNewsType === "StepLauncher";
-  const containerId = isStepLauncher ? NEWS_CONTAINER_ID_ST : NEWS_CONTAINER_ID_MC;
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const nextCount = Math.min(loadedCount + NEWS_BATCH_SIZE, allNews.length);
-
-  let html = "";
-  for (let i = loadedCount; i < nextCount; i++) {
-    const news = allNews[i];
-
-    if (isStepLauncher) {
-      const title = news.Title || null;
-      const date = news.Date ? formatDateString(news.Date) : null;
-      const description = news.Description || null;
-      const image = news.Image || null;
-      const links = news.Links || null;
-      let type = (news.Type || "").toLowerCase();
-
-      const validTypes = ["important", "update", "event", "info", "warning", "community", "other"];
-      const hasValidType = validTypes.includes(type);
-
-      html += `<article class="news-entry${hasValidType ? ` ${type}` : ""}">`;
-
-      if (title) html += `<h2 class="title">${title}</h2>`;
-      if (date) html += `<div class="date">${date}</div>`;
-      if (image) html += `<img src="${image}" alt="Imagen">`;
-      if (description) html += `<p class="description">${description}</p>`;
-
-      if (links && typeof links === "object") {
-        let linksHTML = "";
-        if (links.Github) linksHTML += `<a href="#" data-link="${links.Github}" class="news-link">GitHub</a> `;
-        if (links.Youtube) linksHTML += `<a href="#" data-link="${links.Youtube}" class="news-link">YouTube</a> `;
-        if (links.Instagram) linksHTML += `<a href="#" data-link="${links.Instagram}" class="news-link">Instagram</a> `;
-        if (links.NPM) linksHTML += `<a href="#" data-link="${links.NPM}" class="news-link">NPM</a> `;
-
-        if (Array.isArray(links.Other)) {
-          links.Other.forEach(link => {
-            if (link && typeof link === "string" && link.trim() !== "") {
-              linksHTML += `<a href="#" data-link="${link}" class="news-link">Otro</a> `;
-            }
-          });
-        }
-        if (linksHTML) html += `<div class="links">${linksHTML.trim()}</div>`;
-      }
-      html += `</article>`;
-    } else {
-      const dateObj = new Date(news.date || news.created_at || Date.now());
-      const formattedDate = formatFullDate(dateObj);
-      const imgUrl = news.image?.url
-        ? "https://launchercontent.mojang.com" + news.image.url
-        : (news.image || "");
-      const imgAlt = news.image?.title || news.title || "Imagen";
-
-      html += `<article>`;
-      if (news.title) html += `<h2>${news.title}</h2>`;
-      html += `<div class="date">${formattedDate}</div>`;
-      if (imgUrl) html += `<img src="${imgUrl}" alt="${imgAlt}">`;
-      if (news.shortText || news.content) html += `<p class="short-text">${news.shortText || news.content}</p>`;
-      html += `</article>`;
-    }
-  }
-
-  container.insertAdjacentHTML("beforeend", html);
-  loadedCount = nextCount;
-
-  let btn = document.getElementById("btnLoadMoreNews");
-  if (!btn) {
-    btn = document.createElement("button");
-    btn.id = "btnLoadMoreNews";
-    btn.textContent = "Cargar más noticias";
-    btn.addEventListener("click", renderNewsBatch);
-    container.after(btn);
-  }
-
-  btn.style.display = loadedCount >= allNews.length ? "none" : "inline-block";
-}
-
-// --- Aquí está el listener global para abrir links con electronApi ---
-document.addEventListener("click", function (e) {
-  const target = e.target;
-  if (target.matches("a.news-link")) {
-    e.preventDefault();
-    const link = target.getAttribute("data-link");
-    if (link) {
-      if (window.electronApi && typeof window.electronApi.openLink === "function") {
-        window.electronApi.openLink(link);
-      } else {
-        console.error("No se pudo abrir el link: no existe window.electronApi.openLink");
-      }
-    }
-  }
-});
-
-document.getElementById("SelectNews").addEventListener("change", async (e) => {
-  const selected = e.target.value;
-  currentNewsType = selected;
-
-  document.getElementById(NEWS_CONTAINER_ID_MC).classList.toggle("Disabled", selected !== "Minecraft");
-  document.getElementById(NEWS_CONTAINER_ID_ST).classList.toggle("Disabled", selected !== "StepLauncher");
-
-  setLoaderActive(true);
-
-  setTimeout(() => {
-    fetchNews(selected).then(() => {
-      setLoaderActive(false);
-    });
-  }, 1000);
-});
-
-window.addEventListener("DOMContentLoaded", () => {
-  setLoaderActive(true);
-
-  setTimeout(() => {
-    fetchNews(currentNewsType).then(() => {
-      setLoaderActive(false);
-    });
-  }, 2000);
-});
-
+    setTimeout(() => {
+      fetchNews(currentNewsType).then(() => {
+        setLoaderActive(false);
+      });
+    }, 2000);
+  });
 </script>

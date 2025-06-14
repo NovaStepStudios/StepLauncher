@@ -1,4 +1,4 @@
-let currentLang = "es"; // fallback
+let currentLang = "es";
 
 function getValueFromPath(obj, path) {
   return path.split(".").reduce((acc, key) => acc?.[key], obj);
@@ -6,7 +6,7 @@ function getValueFromPath(obj, path) {
 
 async function loadLanguage(langCode) {
   try {
-    const response = await fetch(`../lang/${langCode}.json`);
+    const response = await fetch(`../../render/lang/${langCode}.json`);
     const languageData = await response.json();
 
     const elements = document.querySelectorAll("[data-lang]");

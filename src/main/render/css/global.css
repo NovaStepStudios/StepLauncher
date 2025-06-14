@@ -6,6 +6,8 @@
     ,url("../../assets/background/Fondos/2.png");
     --items-color-principal: #000;
     --items-color-secundary: rgb(48, 48, 48);
+    --notification-color-principal: #222;
+    --notification-color-secundary: #000;
 }
 @font-face {
     font-family: AvernirBlack;
@@ -120,5 +122,78 @@ body {
     }
     100%{
         scale: 1.0;
+    }
+}
+
+.Notification{
+    position: fixed;
+    right: -100%;
+    top: 3rem;
+    width: 25rem;
+    height: 3rem;
+    padding: 0.2rem 0.5rem;
+    border: 0.1rem solid var(--notification-color-secundary);
+    border-radius: 0.5rem;
+    z-index: 500;
+    display: flex;
+    justify-items: center;
+    align-items: center;
+}
+.Notification::after{
+    background: inherit;
+    position: absolute;
+    content: '';
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    scale: 1.05;
+    filter: blur(1rem) saturate(1.5);
+    z-index: -1;
+}
+.ContainerNotificationText{
+    position: absolute;
+    top: 0;
+    left: 0.5rem;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color:white;
+    gap: 1rem;
+}
+
+.Notification.error{
+    background: linear-gradient(45deg,var(--notification-color-principal) 50%,red);
+    animation: FadeInNotification 1.5s ease-in-out forwards,
+            FadeOutNotification 3s ease-in-out 4s forwards;
+}
+.Notification.accepted{
+    background: linear-gradient(45deg,var(--notification-color-principal) 0%,rgb(15, 201, 15));
+    animation: FadeInNotification 1.5s ease-in-out forwards,
+            FadeOutNotification 3s ease-in-out 4s forwards;
+}
+@keyframes FadeOutNotification {
+    90% {
+        right: 3rem;
+        scale: 1;
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.8;
+        right: -100%;
+        scale: 0.9;
+    }
+}
+@keyframes FadeInNotification {
+    90%{
+        right: 3rem;
+        scale: 0.9;
+        opacity: 0.8;
+    }
+    100%{
+        opacity: 1;
+        right: 3rem;
+        scale: 1;
     }
 }

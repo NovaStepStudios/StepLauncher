@@ -1,0 +1,192 @@
+
+<style>
+  .Content {
+    position: absolute;
+    top: 2.5rem;
+    left: 0;
+    width: 100%;
+    height: calc(100% - 2.5rem);
+    display: flex;
+  }
+
+  .SideBarConfig {
+    width: 13rem;
+    border-radius: 0.5rem;
+    background-color: var(--bg-tittlebar-secundary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 0.5rem;
+  }
+
+  .SideBarItem {
+    background-color: var(--items-color-secundary);
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: 0.6rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .SideBarItem:hover {
+    background-color: #0066ff;
+  }
+
+  .PanelContainerConfig {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+  }
+
+  .PanelConfig {
+    display: none;
+  }
+
+  .PanelConfig.active {
+    display: block;
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(1rem); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .config-section {
+    margin-bottom: 2rem;
+  }
+
+  .config-section h2 {
+    margin-bottom: 1rem;
+    color: white;
+    font-family: AvernirBlack, Arial, sans-serif;
+  }
+
+  .config-section label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: white;
+  }
+
+  .config-section input,
+  .config-section select {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: var(--items-color-principal);
+    color: white;
+    border: none;
+  }
+</style>
+</head>
+<body>
+<div class="Content">
+  <!-- Sidebar -->
+  <div class="SideBarConfig">
+    <div class="SideBarItem" data-target="launcher">Launcher</div>
+    <div class="SideBarItem" data-target="minecraft">Minecraft</div>
+    <div class="SideBarItem" data-target="apariencia">Apariencia</div>
+    <div class="SideBarItem" data-target="dev">Desarrollador</div>
+    <div class="SideBarItem" data-target="guardar">Guardar</div>
+  </div>
+
+  <!-- Paneles -->
+  <div class="PanelContainerConfig">
+
+    <!-- Panel: Launcher -->
+    <div class="PanelConfig active" data-panel="launcher">
+      <div class="config-section">
+        <h2>Directorio del Launcher</h2>
+        <label>Ruta de instalación del launcher:</label>
+        <input type="text" placeholder="C:\Program Files\StepLauncher" />
+      </div>
+      <div class="config-section">
+        <h2>Comportamiento</h2>
+        <label><input type="checkbox" /> Ejecutar al iniciar el sistema</label>
+        <label><input type="checkbox" /> Minimizar al cerrar</label>
+      </div>
+    </div>
+
+    <!-- Panel: Minecraft -->
+    <div class="PanelConfig" data-panel="minecraft">
+      <div class="config-section">
+        <h2>Ruta .minecraft</h2>
+        <label>Directorio:</label>
+        <input type="text" placeholder="C:\Users\Usuario\AppData\.minecraft" />
+      </div>
+      <div class="config-section">
+        <h2>Java</h2>
+        <label>Ruta del ejecutable Java:</label>
+        <input type="text" placeholder="C:\Program Files\Java\bin\javaw.exe" />
+        <label>Memoria RAM (MB):</label>
+        <input type="number" min="512" step="512" value="4096" />
+      </div>
+      <div class="config-section">
+        <h2>Resolución</h2>
+        <label>Ancho (px):</label>
+        <input type="number" value="1280" />
+        <label>Alto (px):</label>
+        <input type="number" value="720" />
+        <label><input type="checkbox" /> Pantalla completa</label>
+      </div>
+    </div>
+
+    <!-- Panel: Apariencia -->
+    <div class="PanelConfig" data-panel="apariencia">
+      <div class="config-section">
+        <h2>Tema</h2>
+        <label>Seleccionar tema:</label>
+        <select>
+          <option value="dark">Oscuro</option>
+          <option value="light">Claro</option>
+        </select>
+      </div>
+      <div class="config-section">
+        <h2>Fondo personalizado</h2>
+        <label>Imagen de fondo:</label>
+        <input type="file" />
+      </div>
+      <div class="config-section">
+        <h2>Sonido</h2>
+        <label><input type="checkbox" /> Música de fondo habilitada</label>
+        <label><input type="checkbox" /> Efectos de sonido al navegar</label>
+      </div>
+    </div>
+
+    <!-- Panel: Desarrollador -->
+    <div class="PanelConfig" data-panel="dev">
+      <div class="config-section">
+        <h2>Opciones Avanzadas</h2>
+        <label><input type="checkbox" /> Mostrar consola debug</label>
+        <label><input type="checkbox" /> Guardar logs del juego</label>
+        <label><input type="checkbox" /> Habilitar modo seguro</label>
+      </div>
+    </div>
+
+    <!-- Panel: Guardar -->
+    <div class="PanelConfig" data-panel="guardar">
+      <div class="config-section">
+        <h2>Guardar configuración</h2>
+        <button style="width: 100%; padding: 1rem; background: #0066ff; color: white; border-radius: 0.5rem;">
+          Guardar cambios
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Script para cambiar entre paneles -->
+<script type="module">
+  const sidebarItems = document.querySelectorAll(".SideBarItem");
+  const panels = document.querySelectorAll(".PanelConfig");
+
+  sidebarItems.forEach(item => {
+    item.addEventListener("click", () => {
+      const target = item.dataset.target;
+      panels.forEach(p => {
+        p.classList.toggle("active", p.dataset.panel === target);
+      });
+    });
+  });
+</script>

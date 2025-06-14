@@ -32,6 +32,7 @@
   },
   "homepage": "https://github.com/NovaStepStudios/StepLauncher#readme",
   "dependencies": {
+    "discord-rpc": "^4.0.1",
     "electron": "^36.4.0"
   }
 }
