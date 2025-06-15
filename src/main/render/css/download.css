@@ -1,0 +1,203 @@
+:root {
+    --gap-xl: 1.5rem;
+    --gap-lg: 1rem;
+    --gap-md: 0.75rem;
+    --gap-sm: 0.5rem;
+    --gap-xs: 0.375rem;
+
+    --font-xl: 1.8rem;
+    --font-lg: 1.15rem;
+    --font-md: 1rem;
+    --font-sm: 0.95rem;
+    --font-xs: 0.9rem;
+    --font-xxs: 0.75rem;
+}
+
+.Content {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--gap-xl);
+    backdrop-filter: blur(1rem);
+    width: 100%;
+    height: 100%;
+}
+
+.Card {
+    flex: 1;
+    max-width: 90%;
+    margin-top: 4rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(#181818f0 60%, transparent);
+    border-radius: 0.75rem;
+    padding: var(--gap-xl);
+    box-shadow: 0 0 2rem #000a;
+    gap: var(--gap-lg);
+    overflow-y: auto;
+}
+
+.Card h2 {
+    font-size: var(--font-xl);
+    font-weight: 600;
+    text-align: center;
+    margin: 0;
+    border-bottom: 1px solid #333;
+    padding-bottom: var(--gap-sm);
+}
+
+.Header {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-sm);
+    font-size: var(--font-lg);
+}
+
+.Header img {
+    width: 2rem;
+    height: 2rem;
+}
+
+.TypeRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-sm);
+}
+
+.type-btn {
+    background: #222;
+    border: 0.125rem solid #444;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: var(--font-sm);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.type-btn.selected {
+    background: #2a2a2a;
+    border-color: #40ff9c;
+    color: #40ff9c;
+    font-weight: 600;
+}
+
+.Settings {
+    display: none;
+    flex-direction: column;
+    gap: var(--gap-sm);
+}
+
+.Settings.active {
+    display: flex;
+}
+
+select {
+    background: #2b2b2b;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    font-size: var(--font-sm);
+}
+
+select:hover {
+    background: #333;
+}
+
+.chk-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-sm);
+}
+
+.chk-row label {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-xs);
+    font-size: var(--font-xs);
+}
+
+.chk-row input {
+    accent-color: #40ff9c;
+    cursor: pointer;
+}
+
+.note {
+    position: absolute;
+    bottom: 5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: var(--font-xxs);
+    color: #aaa;
+    text-align: center;
+    line-height: 1.3;
+}
+
+.DownloadBtn {
+    width: 15rem;
+    padding: 0.75rem;
+    background: #40ff9c;
+    color: #000;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: var(--font-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.DownloadBtn:hover {
+    background: #35e68c;
+}
+#DebugConsoleDownload {
+    width: 90%;
+    height: 60dvh;
+    margin: 2rem auto;
+    margin-bottom: 3rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 10px #000c;
+    overflow-y: auto;
+    color: #fff;
+    font-family: 'Fira Code', Arial, Helvetica, sans-serif, monospace;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    scrollbar-width: thin;
+    scrollbar-color: #888 #222;
+}
+
+/* Scrollbar (para navegadores Chromium) */
+#DebugConsoleDownload::-webkit-scrollbar {
+    width: 8px;
+}
+
+#DebugConsoleDownload::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#DebugConsoleDownload::-webkit-scrollbar-track {
+    background: transparent;
+}
+.DownloadBtn.Disabled {
+    position: absolute;
+    top: 6.5rem;
+    right: 6rem;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    border-radius: 0.5rem;
+    background: #444;
+    color: #ccc;
+    border: 1px solid #666;
+    cursor: not-allowed;
+    opacity: 0.6;
+    pointer-events: none;
+    transition: background 0.3s ease, opacity 0.3s ease;
+}

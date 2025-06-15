@@ -1,10 +1,9 @@
-// minecraft.js
 import { showNotification } from "./global/Notification.js";
 
 const VANILLA_MANIFEST =
   "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
-// ——— End‑points de loaders y clientes ———
+// ——— End‑points de loaders ———
 const ENDPOINTS = {
   fabric: "https://meta.fabricmc.net/v2/versions/loader",
   legacyfabric: "https://meta.legacyfabric.net/v2/versions/loader",
@@ -71,15 +70,6 @@ export async function getVersions(channel = "release") {
       /** @type {{version:string}[]} */
       const data = await res.json();
       return data.map((v) => v.version); // OptiFine_HD_U_I7
-    }
-
-    /* -------------- CLIENTS -------------- */
-    if (channel === "clients") {
-      const res = await fetch(ENDPOINTS.clients);
-      if (!res.ok) throw new Error();
-      /** @type {string[]} */
-      const data = await res.json(); // ['lunar-1.8', 'feather-latest', ...]
-      return data;
     }
 
     /* -------------- Fallback: última release -------------- */

@@ -50,8 +50,8 @@
                     <span class="material-icons">sports_esports</span>
                 </div>
                 <div class="Account">
-                    <img src="../assets/img/setve.png" alt="Avatar Profile" id="AvatarUser">
-                    <h2 id="UserName">StepnickaSantiago</h2>
+                    <canvas id="HeadModel"></canvas>
+                    <h2 id="Username">StepnickaSantiago</h2>
                     <img src="../assets/status/online.png" alt="Status" id="StatusImg">
                 </div>
             </div>
@@ -68,7 +68,10 @@
             <h4 id="TextNotification"></h4>
         </div>
     </div>
-    <script src="../render/js/home.js" type="module"></script>
-    <script src="../render/js/lang.js"></script>
+    <script type="module" src="../render/js/global/Account.js">
+        applyUsernameToDOM("StepnickaSantiago");
+    </script>
+    <script src="../render/js/home.js" type="module">
+    </script>
 </body>
 </html>

@@ -1,8 +1,3 @@
-/**
- * @author NovaStepStudios
- * 
- */
-
 const child_process = require("child_process");
 const path = require("path");
 const fs = require("fs");
@@ -23,7 +18,8 @@ class MinecraftEjecuting extends EventEmitter {
 
   async launch(opts) {
     if (!opts?.version?.versionID) {
-      throw new Error("No se ha especificado una versión válida");
+      this.emit("error", "No se ha especificado una versión válida");
+      return null;
     }
 
     this.options = {
@@ -49,27 +45,33 @@ class MinecraftEjecuting extends EventEmitter {
     );
 
     if (!fs.existsSync(versionJsonPath)) {
-      throw new Error(`Archivo de versión no encontrado: ${versionJsonPath}`);
+      this.emit(
+        "error",
+        `Archivo de versión no encontrado: ${versionJsonPath}`
+      );
+      return null;
     }
 
-    this.versionDataCache = JSON.parse(
-      await fsPromises.readFile(versionJsonPath, "utf-8")
-    );
+    try {
+      const rawData = await fsPromises.readFile(versionJsonPath, "utf-8");
+      this.versionDataCache = JSON.parse(rawData);
+    } catch (e) {
+      this.emit("error", `Error al leer archivo de versión: ${e.message}`);
+      return null;
+    }
+
     this.assetIndexIdCache =
       this.versionDataCache.assetIndex?.id || this.options.version.versionID;
 
-    const [libraries] = await Promise.all([
-      this.getLibraries(),
-      this._createDirs(),
-    ]);
+    await Promise.all([this.getLibraries(), this._createDirs()]);
 
     try {
       this.emit("debug", `Iniciando versión ${this.options.version.versionID}`);
-      const launchArgs = await this._buildLaunchArgs(libraries);
+      const launchArgs = await this._buildLaunchArgs(await this.getLibraries());
       this.emit("debug", `Argumentos: ${launchArgs.join(" ")}`);
       return this._startMinecraftProcess(launchArgs);
     } catch (error) {
-      this.emit("debug", `Error al lanzar Minecraft: ${error.message}`);
+      this.emit("error", `Error al lanzar Minecraft: ${error.message}`);
       this.emit("close", 1);
       return null;
     }
@@ -88,9 +90,31 @@ class MinecraftEjecuting extends EventEmitter {
     );
 
     try {
-      const rawIndex = await fsPromises.readFile(assetIndexPath, "utf-8");
-      return JSON.parse(rawIndex).objects || {};
+      await fsPromises.access(assetIndexPath);
     } catch {
+      this.emit(
+        "debug",
+        `Archivo de índice de assets no encontrado: ${assetIndexPath}`
+      );
+      return {};
+    }
+
+    try {
+      const rawIndex = await fsPromises.readFile(assetIndexPath, "utf-8");
+      const parsed = JSON.parse(rawIndex);
+      if (!parsed.objects) {
+        this.emit(
+          "debug",
+          `El índice de assets no contiene 'objects': ${assetIndexPath}`
+        );
+        return {};
+      }
+      return parsed.objects;
+    } catch (e) {
+      this.emit(
+        "error",
+        `Error leyendo/parsing índice de assets: ${e.message}`
+      );
       return {};
     }
   }
@@ -117,23 +141,24 @@ class MinecraftEjecuting extends EventEmitter {
 
     const libPaths = applicableLibs
       .map((lib) => {
-        return lib.downloads?.artifact?.path
-          ? path.join(
-              this.options.root,
-              "libraries",
-              lib.downloads.artifact.path
-            )
-          : lib.name
-          ? (([group, artifact, version]) =>
-              path.join(
-                this.options.root,
-                "libraries",
-                ...group.split("."),
-                artifact,
-                version,
-                `${artifact}-${version}.jar`
-              ))(lib.name.split(":"))
-          : null;
+        if (lib.downloads?.artifact?.path) {
+          return path.join(
+            this.options.root,
+            "libraries",
+            lib.downloads.artifact.path
+          );
+        } else if (lib.name) {
+          const [group, artifact, version] = lib.name.split(":");
+          return path.join(
+            this.options.root,
+            "libraries",
+            ...group.split("."),
+            artifact,
+            version,
+            `${artifact}-${version}.jar`
+          );
+        }
+        return null;
       })
       .filter(Boolean);
 
@@ -196,10 +221,9 @@ class MinecraftEjecuting extends EventEmitter {
       profiles = JSON.parse(rawData);
       if (!Array.isArray(profiles)) profiles = [];
     } catch {
-      // Si no existe o no se puede leer, dejamos array vacío
+      // No existe o está corrupto, dejamos vacío
     }
 
-    // Buscar perfil legacy existente
     const existingProfile = profiles.find(
       (p) => p.type === "legacy" && p.uuid && p.accessToken
     );
@@ -208,7 +232,6 @@ class MinecraftEjecuting extends EventEmitter {
       return existingProfile;
     }
 
-    // Crear nuevo perfil
     const newUser = {
       type: "legacy",
       name: this.options.user?.name || "Player",
@@ -218,11 +241,18 @@ class MinecraftEjecuting extends EventEmitter {
 
     profiles.push(newUser);
 
-    await fsPromises.writeFile(
-      profilesPath,
-      JSON.stringify(profiles, null, 2),
-      "utf-8"
-    );
+    try {
+      await fsPromises.writeFile(
+        profilesPath,
+        JSON.stringify(profiles, null, 2),
+        "utf-8"
+      );
+    } catch (e) {
+      this.emit(
+        "error",
+        `Error al guardar launcher_profiles.json: ${e.message}`
+      );
+    }
 
     return newUser;
   }
@@ -230,14 +260,18 @@ class MinecraftEjecuting extends EventEmitter {
   async _createDirs() {
     const dirs = [
       this.options.root,
-      this.options.overrides.gameDirectory,
+      this.options.overrides?.gameDirectory,
       this.getNatives(),
       path.join(this.getAssets(), "indexes"),
       path.join(this.options.root, "logs"),
     ].filter(Boolean);
 
     await Promise.all(
-      dirs.map((dir) => fsPromises.mkdir(dir, { recursive: true }))
+      dirs.map((dir) =>
+        fsPromises.mkdir(dir, { recursive: true }).catch((e) => {
+          this.emit("error", `Error creando directorio ${dir}: ${e.message}`);
+        })
+      )
     );
   }
 
@@ -253,7 +287,7 @@ class MinecraftEjecuting extends EventEmitter {
     try {
       await fsPromises.access(versionJar);
     } catch {
-      throw new Error(`JAR de versión no encontrado: ${versionJar}`);
+      this.emit("error", `JAR de versión no encontrado: ${versionJar}`);
     }
 
     const mainClass =
@@ -277,7 +311,7 @@ class MinecraftEjecuting extends EventEmitter {
       "--version",
       versionID,
       "--gameDir",
-      this.options.overrides.gameDirectory || this.options.root,
+      this.options.overrides?.gameDirectory || this.options.root,
       "--assetsDir",
       this.getAssets(),
       "--assetIndex",
@@ -300,7 +334,7 @@ class MinecraftEjecuting extends EventEmitter {
   _startMinecraftProcess(args) {
     const javaPath = args[0];
     const spawnOptions = {
-      cwd: this.options.overrides.gameDirectory || this.options.root,
+      cwd: this.options.overrides?.gameDirectory || this.options.root,
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
     };

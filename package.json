@@ -31,8 +31,14 @@
     "url": "https://github.com/NovaStepStudios/StepLauncher/issues"
   },
   "homepage": "https://github.com/NovaStepStudios/StepLauncher#readme",
+  "devDependencies": {
+    "electron": "^36.4.0",
+    "adm-zip": "^0.5.16",
+    "node-fecth": "^0.0.1-security"
+  },
   "dependencies": {
     "discord-rpc": "^4.0.1",
-    "electron": "^36.4.0"
+    "tar": "^7.4.3",
+    "unzipper": "^0.12.3"
   }
 }

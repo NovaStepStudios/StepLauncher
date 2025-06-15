@@ -1,10 +1,129 @@
-<style>
-    .Content{
-        width: 100%;
-        height: 100%;
-        background-color: red;
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StepLauncher - Jugar a Minecraft</title>
+  <link rel="stylesheet" href="../render/css/download.css" />
+</head>
+<body>
+
+  <div class="Content">
+    <div class="Card">
+      <h2>Jugar a Minecraft</h2>
+
+      <div class="Header">
+        <img src="../assets/img/minecraft.png" alt="icon" />
+        <span>Perfil:</span> <span id="Username"></span>
+      </div>
+
+      <div class="Settings active">
+        <label for="version">Versión</label>
+        <select id="version"></select>
+      </div>
+
+      <button class="DownloadBtn" id="PlayGame" style="height: 3rem;">▶ JUGAR</button>
+    </div>
+
+    <div class="note">
+      Se lanzará Minecraft con la configuración seleccionada.<br />
+      Asegúrate de tener Java instalado correctamente.
+      Si es una version antigua, menor a v1.6 puede tirar errores,
+      como ventanas emergentes, el juego iniciara correctamente, pero tendra errores como <br>
+      errores de sonido que no se reproducen.
+    </div>
+  </div>
+
+  <script type="module">
+    import { applyUsernameToDOM } from "../render/js/global/Account.js";
+    import { showNotification } from "../render/js/global/Notification.js";
+
+    applyUsernameToDOM("StepnickaSantiago");
+
+    const versionSelect = document.getElementById("version");
+    const playBtn = document.getElementById("PlayGame");
+    let installedVersions = [];
+
+    function getTypeFromValue(value) {
+      if (value.startsWith("forge-")) return "Forge";
+      if (value.startsWith("fabric-")) return "Fabric";
+      if (value.startsWith("neoforge-")) return "NeoForge";
+      return "Vanilla";
     }
-</style>
-<div class="Content">
-    
-</div>
+
+    function populateVersionOptions() {
+      versionSelect.innerHTML = "";
+
+      if (installedVersions.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No tienes versiones instaladas";
+        versionSelect.appendChild(opt);
+        versionSelect.disabled = true;
+      } else {
+        installedVersions.forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v.startsWith("forge-")
+            ? `Forge ${v.substring(6)}`
+            : v.startsWith("fabric-")
+            ? `Fabric ${v.substring(7)}`
+            : v.startsWith("neoforge-")
+            ? `NeoForge ${v.substring(9)}`
+            : v;
+          versionSelect.appendChild(opt);
+        });
+        versionSelect.disabled = false;
+
+      }
+    }
+
+    async function loadVersions() {
+      try {
+        installedVersions = await window.electronAPI.getInstalledVersions();
+        populateVersionOptions();
+      } catch (error) {
+        console.error("Error obteniendo versiones:", error);
+        versionSelect.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "Error cargando versiones";
+        versionSelect.appendChild(opt);
+        versionSelect.disabled = true;
+
+        showNotification({
+          type: "error",
+          text: "Error al cargar versiones",
+        });
+      }
+    }
+
+    loadVersions();
+
+    playBtn.addEventListener("click", () => {
+    const selectedVersion = versionSelect.value;
+    if (!selectedVersion) {
+        alert("Por favor selecciona una versión para jugar.");
+        return;
+    }
+
+    playBtn.disabled = true;
+
+    const user = {
+        name: "StepnickaSantiago", // ← o cargarlo dinámicamente
+        skinPath: "./skin.png",    // ruta accesible desde el backend
+        capaPath: "./cape.png",
+    };
+
+    window.electronAPI.playMinecraft(selectedVersion)
+    .catch(err => {
+        // Enviar error al backend y mostrar notificación
+        console.log("Error lanzando Minecraft:", err);
+    })
+    .finally(() => {
+        playBtn.disabled = false;
+    });
+    });
+  </script>
+</body>
+</html>

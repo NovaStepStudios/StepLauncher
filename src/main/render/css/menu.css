@@ -49,16 +49,18 @@
         #StatusImg{
             position: absolute;
             top: 0.2rem;
-            right: 0.2rem;
+            left: 0.2rem;
             width: 0.8rem;
             margin: 0;
             animation: Pulse 5s ease-in-out infinite;
         }
-        img{
+        canvas{
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            right: -3rem;
             object-fit: cover;
-            width: 3rem;
-            margin: auto 0.5rem;
-            border-radius: 0.5rem;
+            width: 10rem;
         }
     }
     .SideBarItem{

@@ -1,163 +1,4 @@
-<style>
-:root {
-  --gap-xl: 1.5rem;
-  --gap-lg: 1rem;
-  --gap-md: 0.75rem;
-  --gap-sm: 0.5rem;
-  --gap-xs: 0.375rem;
-
-  --font-xl: 1.8rem;
-  --font-lg: 1.15rem;
-  --font-md: 1rem;
-  --font-sm: 0.95rem;
-  --font-xs: 0.9rem;
-  --font-xxs: 0.75rem;
-}
-
-.Content {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: var(--gap-xl);
-  backdrop-filter: blur(1rem);
-  width: 100%;
-  height: 100%;
-}
-
-.Card {
-  flex: 1;
-  max-width: 90%;
-  margin-top:4rem;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(#181818f0 60%, transparent);
-  border-radius: 0.75rem;
-  padding: var(--gap-xl);
-  box-shadow: 0 0 2rem #000a;
-  gap: var(--gap-lg);
-  overflow-y: auto;
-}
-
-.Card h2 {
-  font-size: var(--font-xl);
-  font-weight: 600;
-  text-align: center;
-  margin: 0;
-  border-bottom: 1px solid #333;
-  padding-bottom: var(--gap-sm);
-}
-
-.Header {
-  display: flex;
-  align-items: center;
-  gap: var(--gap-sm);
-  font-size: var(--font-lg);
-}
-
-.Header img {
-  width: 2rem;
-  height: 2rem;
-}
-
-.TypeRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-sm);
-}
-
-.type-btn {
-  background: #222;
-  border: 0.125rem solid #444;
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: var(--font-sm);
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.type-btn.selected {
-  background: #2a2a2a;
-  border-color: #40ff9c;
-  color: #40ff9c;
-  font-weight: 600;
-}
-
-.Settings {
-  display: none;
-  flex-direction: column;
-  gap: var(--gap-sm);
-}
-
-.Settings.active {
-  display: flex;
-}
-
-select {
-  background: #2b2b2b;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  padding: 0.5rem;
-  font-size: var(--font-sm);
-}
-
-select:hover {
-  background: #333;
-}
-
-.chk-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--gap-sm);
-}
-
-.chk-row label {
-  display: flex;
-  align-items: center;
-  gap: var(--gap-xs);
-  font-size: var(--font-xs);
-}
-
-.chk-row input {
-  accent-color: #40ff9c;
-  cursor: pointer;
-}
-
-.note {
-    position: absolute;
-    bottom: 5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: var(--font-xxs);
-    color: #aaa;
-    text-align: center;
-    line-height: 1.3;
-}
-
-.DownloadBtn {
-    width: 15rem;
-  padding: 0.75rem;
-  background: #40ff9c;
-  color: #000;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: var(--font-md);
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.DownloadBtn:hover {
-  background: #35e68c;
-}
-
-</style>
-
+<link rel="stylesheet" href="../render/css/download.css">
 <div class="Content">
     <div class="Card">
     <h2>Descargar versión</h2>
@@ -165,9 +6,9 @@ select:hover {
         <img src="../assets/img/minecraft.png" alt="Java" />
         <span id="versionLabel">Minecraft Java Edition</span>
     </div>
-
-    <!-- TIPO DE VERSIÓN -->
-    <div class="TypeRow" id="typeRow">
+    <div id="SelectVersions">
+      <!-- TIPO DE VERSIÓN -->
+      <div class="TypeRow" id="typeRow">
         <div class="type-btn selected" data-type="vanilla">Vanilla</div>
         <div class="type-btn" data-type="fabric">Fabric</div>
         <div class="type-btn" data-type="forge">Forge</div>
@@ -217,20 +58,24 @@ select:hover {
     <div class="note">
         Seleccioná el tipo de versión y su variante antes de descargar. Las versiones modificadas son creadas por la comunidad.
     </div>
+    </div>
+    <div id="DebugConsoleDownload" style="display: none;">
+    </div>
 
-    <button class="DownloadBtn" onclick="startDownload()">Descargar versión</button>
+    <button class="DownloadBtn" style="height: 3rem;">Descargar versión</button>
     </div>
 </div>
 <script type="module">
   import { getVersions } from '../render/js/minecraft.js';
-
+  
   /* ----------  Referencias / estado ---------- */
-  const typeBtns  = document.querySelectorAll('.type-btn');
-  const settings  = document.querySelectorAll('.Settings');
+  const typeBtns = document.querySelectorAll('.type-btn');
+  const settings = document.querySelectorAll('.Settings');
+  document.querySelector('.DownloadBtn').addEventListener('click', startDownload);
   const vanillaRadios = document.querySelectorAll('input[name="vanilla-channel"]');
-  const loaded = {};                    // cache: { channel: true }
-  let   selectedType = 'vanilla';
-
+  const loaded = {}; // cache: { channel: true }
+  let selectedType = 'vanilla';
+  
   /* ----------  Helpers ---------- */
   async function fillSelect(select, versions) {
     select.innerHTML = '';
@@ -241,53 +86,51 @@ select:hover {
       select.appendChild(opt);
     });
   }
-
-  /* ----- Vanilla: release | snapshot | old_beta | old_alpha ----- */
+  
   async function updateVanillaSelect(channel) {
     const select = document.getElementById('vanilla-select');
     select.innerHTML = '<option>Cargando...</option>';
     try {
       const versions = await getVersions(channel);
       await fillSelect(select, versions);
-    } catch {
+    } catch (err) {
+      console.error('[updateVanillaSelect]', err);
       select.innerHTML = '<option>Error al cargar</option>';
     }
   }
-
-  /* ----- Otros tipos: fabric | forge | optifine | … --------------- */
+  
   async function updateSelectFor(channel) {
     const select = document.querySelector(`#settings-${channel} select`);
-    if (!select || loaded[channel]) return;          // ya estaba cargado
-
+    if (!select || loaded[channel]) return;
+  
     select.innerHTML = '<option>Cargando...</option>';
     try {
       const versions = await getVersions(channel);
       await fillSelect(select, versions);
-      loaded[channel] = true;                       // marcar como cargado
-    } catch {
+      loaded[channel] = true;
+    } catch (err) {
+      console.error(`[updateSelectFor] Error cargando ${channel}:`, err);
       select.innerHTML = '<option>Error al cargar</option>';
     }
   }
-
+  
   /* ----------  Eventos UI ---------- */
-  // Cambio de canal (release/snapshot/beta/alpha) dentro de Vanilla
   vanillaRadios.forEach(radio => {
     radio.addEventListener('change', e => {
       if (selectedType === 'vanilla') updateVanillaSelect(e.target.value);
     });
   });
-
-  // Cambio de tipo (vanilla, forge, fabric, …)
+  
   typeBtns.forEach(btn => {
     btn.addEventListener('click', async () => {
       typeBtns.forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       selectedType = btn.dataset.type;
-
+  
       settings.forEach(s => s.classList.remove('active'));
       const activePanel = document.getElementById(`settings-${selectedType}`);
       if (activePanel) activePanel.classList.add('active');
-
+  
       if (selectedType === 'vanilla') {
         const channel = document.querySelector('input[name="vanilla-channel"]:checked').value;
         await updateVanillaSelect(channel);
@@ -296,24 +139,109 @@ select:hover {
       }
     });
   });
-
+  
   /* ----------  Inicialización ---------- */
-  updateVanillaSelect('release');          // primer llenado
-
+  updateVanillaSelect('release');
+  
   /* ----------  Descargar ---------- */
   function startDownload() {
+    const downloadBtn = document.querySelector('.DownloadBtn');
+    const selectVersions = document.getElementById('SelectVersions');
+    const debugConsole = document.getElementById('DebugConsoleDownload');
+  
     const opts = { type: selectedType };
-
     const select = document.querySelector(`#settings-${selectedType} select`);
     if (select) opts.version = select.value;
-
+  
     if (selectedType === 'vanilla') {
       const channel = document.querySelector('input[name="vanilla-channel"]:checked');
       opts.channel = channel?.value ?? 'release';
     }
-
-    console.log('[DOWNLOAD]', opts);
-    window.electronAPI.downloadMinecraft(opts);
+  
+    downloadBtn.disabled = true;
+    let countdown = 5;
+  
+    const countdownInterval = setInterval(() => {
+      downloadBtn.textContent = `Comenzando en ${countdown}...`;
+  
+      if (countdown === 3) {
+        downloadBtn.classList.add("Disabled");
+        if (selectVersions) selectVersions.remove();
+        if (debugConsole) debugConsole.style.display = 'block';
+        setupDownloadListeners();
+      }
+  
+      if (countdown === 0) {
+        clearInterval(countdownInterval);
+        downloadBtn.textContent = 'Descargando...';
+        window.electronAPI.downloadMinecraft(opts);
+      }
+  
+      countdown--;
+    }, 1000);
   }
-  window.startDownload = startDownload;   // exposición global
+  
+  /* ----------  Debug Consola + Logs ---------- */
+  function setupDownloadListeners() {
+    const debugConsole = document.getElementById('DebugConsoleDownload');
+    const downloadBtn = document.querySelector('.DownloadBtn');
+    const closeBtn = document.querySelector('.close-btn');
+
+    debugConsole.innerHTML = ''; // Limpiar consola
+
+    // Desactivar el botón de cerrar
+    if (closeBtn) closeBtn.disabled = true;
+
+    // Eventos del backend
+    window.electronAPI.onProgress((msg) => {
+      appendDebug(msg);
+    });
+
+    window.electronAPI.onError((err) => {
+      appendDebug(`ERROR: ${err}`, true);
+
+      // Reactivar controles
+      if (closeBtn) closeBtn.disabled = false;
+      if (downloadBtn) {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Descargar versión';
+        downloadBtn.classList.remove('Disabled');
+      }
+    });
+
+    window.electronAPI.onDone((msg) => {
+      appendDebug(`COMPLETADO: ${msg}`);
+
+      // Reactivar controles
+      if (closeBtn) closeBtn.disabled = false;
+      if (downloadBtn) {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Descargar versión';
+        downloadBtn.classList.remove('Disabled');
+      }
+    });
+  }
+
+  function appendDebug(text, isError = false) {
+    const debugConsole = document.getElementById('DebugConsoleDownload');
+    const p = document.createElement('p');
+    p.textContent = text;
+
+    if (isError) p.style.color = 'red';
+
+    debugConsole.appendChild(p);
+
+    // Limitar a los últimos 100 logs
+    const maxLogs = 100;
+    while (debugConsole.children.length > maxLogs) {
+      debugConsole.removeChild(debugConsole.firstChild);
+    }
+
+    debugConsole.scrollTop = debugConsole.scrollHeight;
+
+    const prefix = '[DebugConsole]';
+    isError ? console.error(prefix, text) : console.log(prefix, text);
+  }
+
 </script>
+  
