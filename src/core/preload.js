@@ -23,4 +23,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   sendMinecraftLaunchError: (message) => {
     ipcRenderer.send("minecraft-launch-error", message);
   },
+  // Metodos para manejo de ventana
+  closeWindow: () => ipcRenderer.send('close-window'),
+  minizeWindow: () => ipcRenderer.send('minimize-window'),
+  maximizeWindow: () => ipcRenderer.send('maximize-window'),
 });

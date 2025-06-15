@@ -5,6 +5,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const canvas = document.getElementById("HeadModel");
   const skin = "../assets/img/skin.png";
   const engine = new HeadModel(canvas, skin);
+  const closeBtn = document.getElementById("__closeBtn");
+  const maximizeBtn = document.getElementById("__maximizeBtn");
+  const minimizeBtn = document.getElementById("__minimizeBtn");
+
+  // No se como tengas vos ordenadas las funciones pero esto lo podes ordenar luego step.
+  closeBtn.addEventListener("click", () => {
+    window.electronAPI.closeWindow();
+  })
+  // No se como tengas vos ordenadas las funciones pero esto lo podes ordenar luego step.
+  maximizeBtn.addEventListener("click", () => {
+    window.electronAPI.maximizeWindow();
+  })
+  minimizeBtn.addEventListener("click", () => {
+    window.electronAPI.minizeWindow()
+  })
 
   const META = {
     SettingsItem: { title: "Opciones", src: "./layouts/config.html" },

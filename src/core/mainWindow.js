@@ -111,4 +111,37 @@ ipcMain.handle("EjecutingMinecraft", async (event, versionID) => {
   }
 });
 
+ipcMain.on('close-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.close();
+  }
+});
+
+ipcMain.on('maximize-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    try {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+});
+
+ipcMain.on('minimize-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    try {
+      win.minimize();
+    } catch (error) {
+      console.log(error);
+    }
+  }
+});
+
 module.exports = { StepLauncher };
