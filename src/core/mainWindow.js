@@ -1,9 +1,8 @@
 // main.js (entrypoint de Electron)
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { BrowserWindow, ipcMain } = require("electron");
 const { MinecraftDownloader, MinecraftEjecuting } = require("./libs/Minecraft");
 const path = require("path");
 const fs = require("fs").promises;
-const os = require("os");
 
 /* ───────── Helpers de rutas ────────── */
 const getRootDir = () => ".StepLauncher"; // ~/.StepLauncher
