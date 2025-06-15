@@ -1,9 +1,8 @@
 // main.js (entrypoint de Electron)
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { BrowserWindow, ipcMain } = require("electron");
 const { MinecraftDownloader, MinecraftEjecuting } = require("./libs/Minecraft");
 const path = require("path");
 const fs = require("fs").promises;
-const os = require("os");
 
 /* ───────── Helpers de rutas ────────── */
 const getRootDir = () => ".StepLauncher"; // ~/.StepLauncher
@@ -109,6 +108,39 @@ ipcMain.handle("EjecutingMinecraft", async (event, versionID) => {
     await launcher.launch(launchOpts);
   } catch (err) {
     console.log("Error lanzando Minecraft:", err);
+  }
+});
+
+ipcMain.on('close-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.close();
+  }
+});
+
+ipcMain.on('maximize-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    try {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+});
+
+ipcMain.on('minimize-window', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    try {
+      win.minimize();
+    } catch (error) {
+      console.log(error);
+    }
   }
 });
 
