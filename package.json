@@ -4,7 +4,8 @@
   "description": "Launcher For Minecraft!",
   "main": "src/app.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder"
   },
   "repository": {
     "type": "git",
@@ -34,12 +35,48 @@
   "devDependencies": {
     "adm-zip": "^0.5.16",
     "electron": "^36.4.0",
-    "minecraft-launcher-core": "^3.18.2",
+    "electron-builder": "^26.0.12",
     "node-fecth": "^0.0.1-security"
   },
   "dependencies": {
     "discord-rpc": "^4.0.1",
     "tar": "^7.4.3",
     "unzipper": "^0.12.3"
+  },
+  "build": {
+    "appId": "stepnicka.steplauncher",
+    "productName": "StepLauncher",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "src/app.js"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "maintainer": "Stepnicka",
+      "category": "Utility"
+    }
   }
 }
