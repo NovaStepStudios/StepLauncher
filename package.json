@@ -36,6 +36,7 @@
     "adm-zip": "^0.5.16",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
+    "minecraft-launcher-core": "^3.18.2",
     "node-fecth": "^0.0.1-security"
   },
   "dependencies": {
