@@ -82,6 +82,7 @@
     pointer-events: auto;
     opacity: 1;
     transform: translate(-50%) scale(1);
+    overflow-y: auto;
   }
   
   /* TÍTULO DEL PANEL */
@@ -101,7 +102,7 @@
   }
   
   .TittleBarPanel button {
-    background: #222;
+    background: var(--items-color-principal);
     color: white;
     display: flex;
     justify-content: center;
@@ -120,4 +121,3 @@
     background-color: #333;
     outline: none;
   }
-  

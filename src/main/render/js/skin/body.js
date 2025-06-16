@@ -1,4 +1,5 @@
 import { mat4 } from "./mat4.js";
+import { showNotification } from "../global/Notification.js";
 
 export class BodyModel {
   constructor(c, skin, walking = false) {
@@ -23,7 +24,7 @@ export class BodyModel {
     c.style.height = height + "px";
     
     this.gl = c.getContext("webgl", { antialias: false });
-    if (!this.gl) return alert("WebGL no soportado");
+    if (!this.gl) return showNotification({type: "accepted",text:"WebGL Desactivado"});
 
     this.grid = this._createGrid(40, 40);
     this.gl.disable(this.gl.SAMPLE_COVERAGE);

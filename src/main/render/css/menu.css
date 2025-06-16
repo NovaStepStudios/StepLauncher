@@ -21,7 +21,8 @@
     min-width: 13rem;
     max-width: 25rem;
     padding-top: 5rem;
-    background: #0009;
+    opacity: var(--transparent);
+    background: color-mix(in srgb, 65% var(--items-color-principal), 50% var(--items-color-secundary));
     display: flex;  
     flex-direction: column;
     gap: 0.5rem;
@@ -40,11 +41,13 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        overflow: hidden;
+        opacity: 1 !important;
+        z-index: 50;
         h2{
-            background: linear-gradient(90deg,white 50%,transparent 80%);
-            background-clip: text;
+            z-index: -1;
             font-size: 0.9rem;
-            color: transparent;
+            color:white;
         }
         #StatusImg{
             position: absolute;

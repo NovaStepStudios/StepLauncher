@@ -1,9 +1,14 @@
 // HeadEngine.js – renderiza SOLO la cabeza de una skin de Minecraft y la anima, con segunda capa externa
 // © 2025 NovaStep Studios – software libre, úsalo, modifícalo y compártelo ✨
 import { mat4 } from "./mat4.js";
-import { showNotification } from "../global/Notification.js";
+
 export class HeadModel {
-  constructor(canvas, skinUrl) {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {string} skinUrl
+   * @param {object} options Opciones para control de animación y rotación inicial
+   */
+  constructor(canvas, skinUrl, options = {}) {
     this.canvas = canvas;
     this.gl = canvas.getContext("webgl");
     if (!this.gl) {
@@ -11,37 +16,39 @@ export class HeadModel {
       return;
     }
 
-    this.rotationX = 0;
-    this.rotationY = 0;
-    this.targetRotationX = 0.3; 
-    this.targetRotationY = 0.3;
+    this.options = {
+      rotationInitial: {
+        x: (options.rotation?.x ?? 0) * (Math.PI / 180),
+        y: (options.rotation?.y ?? 0) * (Math.PI / 180),
+      },
+      animationEnabled: options.animationEnabled ?? true,
+      swayIntensity: options.swayIntensity ?? 0.1,
+      swaySpeed: options.swaySpeed ?? 1.5,
+    };
 
-    this.isMouseOver = false;
+    // Estado de rotación
+    this.rotationX = this.options.rotationInitial.x;
+    this.rotationY = this.options.rotationInitial.y;
+    this.targetRotationX = this.rotationX;
+    this.targetRotationY = this.rotationY;
 
-    this.init();
-    this.loadSkin(skinUrl);
+    this.isCursorOver = false;
 
-    this.canvas.addEventListener("mouseenter", () => {
-      this.isMouseOver = true;
-      this.targetRotationX = 0;
-      this.targetRotationY = 0;
-    });
+    this._setupGeometry();
+    this._setupShaders();
+    this._loadTexture(skinUrl);
 
-    this.canvas.addEventListener("mouseleave", () => {
-      this.isMouseOver = false;
-      this.targetRotationX = 0.3;
-      this.targetRotationY = 0.3;
-    });
+    this._bindEvents();
 
-    requestAnimationFrame(this.render.bind(this));
+    this._lastTime = 0;
+    requestAnimationFrame(this._render.bind(this));
   }
 
-  init() {
+  _setupGeometry() {
     const gl = this.gl;
-
     const px = 1 / 64;
 
-    // UV para capa base (cabeza)
+    // UV coords para la cabeza base
     const UVBase = {
       right: [0 / 64, 8 / 64, 7 / 64 + px, 15 / 64 + px],
       left: [8 / 64, 8 / 64, 0 / 64 + px, 15 / 64 + px],
@@ -51,7 +58,7 @@ export class HeadModel {
       back: [24 / 64, 8 / 64, 31 / 64 + px, 15 / 64 + px],
     };
 
-    // UV para segunda capa externa (overlay) — está desplazada 32 pixeles a la derecha (por ejemplo, en skins estándar)
+    // UV coords para la segunda capa (overlay)
     const UVOverlay = {
       right: [32 / 64, 8 / 64, 39 / 64 + px, 15 / 64 + px],
       left: [40 / 64, 8 / 64, 32 / 64 + px, 15 / 64 + px],
@@ -82,7 +89,7 @@ export class HeadModel {
       );
     };
 
-    // --- Datos base (cabeza) ---
+    // Vertices base (cabeza)
     const verticesBase = [];
 
     pushFace(
@@ -146,11 +153,9 @@ export class HeadModel {
       UVBase.back
     );
 
-    // --- Datos segunda capa (overlay), tamaño igual pero con pequeño escalado para evitar z-fighting ---
     const overlayScale = 1.1;
-    const verticesOverlay = [];
-
     const scalePos = (p) => p.map((v) => v * overlayScale);
+    const verticesOverlay = [];
 
     pushFace(
       verticesOverlay,
@@ -213,56 +218,54 @@ export class HeadModel {
       UVOverlay.back
     );
 
-    // Combinar buffers (base + overlay)
     const vertices = [...verticesBase, ...verticesOverlay];
 
-    // Indices base (0 a 23) y overlay (24 a 47)
     const indicesBase = new Uint16Array([
       0,
       1,
       2,
       0,
       2,
-      3, // Right
+      3, // right
       4,
       5,
       6,
       4,
       6,
-      7, // Left
+      7, // left
       8,
       9,
       10,
       8,
       10,
-      11, // Top
+      11, // top
       12,
       13,
       14,
       12,
       14,
-      15, // Bottom
+      15, // bottom
       16,
       17,
       18,
       16,
       18,
-      19, // Front
+      19, // front
       20,
       21,
       22,
       20,
       22,
-      23, // Back
+      23, // back
     ]);
     const indicesOverlay = new Uint16Array(
       Array.from(indicesBase).map((i) => i + 24)
     );
-
     const indices = new Uint16Array(indicesBase.length + indicesOverlay.length);
     indices.set(indicesBase);
     indices.set(indicesOverlay, indicesBase.length);
 
+    // Buffers
     this.vertexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
@@ -271,13 +274,18 @@ export class HeadModel {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
+    this.numIndices = indices.length;
+  }
+
+  _setupShaders() {
+    const gl = this.gl;
     const vsSource = `
       attribute vec3 aPosition;
       attribute vec2 aTexCoord;
       varying highp vec2 vTexCoord;
       uniform mat4 uModelViewMatrix;
       uniform mat4 uProjectionMatrix;
-      void main() {
+      void main(void) {
         gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
         vTexCoord = aTexCoord;
       }
@@ -286,13 +294,24 @@ export class HeadModel {
     const fsSource = `
       varying highp vec2 vTexCoord;
       uniform sampler2D uSampler;
-      void main() {
+      void main(void) {
         gl_FragColor = texture2D(uSampler, vTexCoord);
       }
     `;
 
-    const vertexShader = this.compileShader(gl.VERTEX_SHADER, vsSource);
-    const fragmentShader = this.compileShader(gl.FRAGMENT_SHADER, fsSource);
+    const compileShader = (type, source) => {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert("Error al compilar shader: " + gl.getShaderInfoLog(shader));
+        return null;
+      }
+      return shader;
+    };
+
+    const vertexShader = compileShader(gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fsSource);
 
     this.shaderProgram = gl.createProgram();
     gl.attachShader(this.shaderProgram, vertexShader);
@@ -335,29 +354,15 @@ export class HeadModel {
       0.1,
       100
     );
-    mat4.translate(this.modelViewMatrix, this.modelViewMatrix, [0, 0, -6]);
   }
 
-  compileShader(type, source) {
-    const gl = this.gl;
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      alert("Error al compilar shader: " + gl.getShaderInfoLog(shader));
-      gl.deleteShader(shader);
-      return null;
-    }
-    return shader;
-  }
-
-  loadSkin(url) {
+  _loadTexture(url) {
     const gl = this.gl;
     const img = new Image();
-    img.crossOrigin = "";
+    img.crossOrigin = "anonymous";
     img.onload = () => {
-      const texture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, texture);
+      this.texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.texture);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
 
@@ -368,42 +373,89 @@ export class HeadModel {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-      this.texture = texture;
     };
-    img.onerror = () => showNotification({type: "error", icon: "error", text: `No se pudo cargar la skin : ${url}`});
+    img.onerror = () => alert("No se pudo cargar la skin: " + url);
     img.src = url;
   }
 
-  render() {
+  _bindEvents() {
+    window.addEventListener("mousemove", (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Opcional: verifica si el cursor está dentro del canvas para algo
+      const inside = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
+
+      if (inside) {
+        this.isCursorOver = true;
+        // Actualiza rotaciones según posición
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const maxRotation = Math.PI / 8; // +/- 22.5 grados
+
+        this.targetRotationY = ((x - centerX) / centerX) * maxRotation;
+        this.targetRotationX = ((y - centerY) / centerY) * maxRotation;
+      } else {
+        this.isCursorOver = false;
+        this.targetRotationX = this.options.rotationInitial.x;
+        this.targetRotationY = this.options.rotationInitial.y;
+      }
+    });
+    this.canvas.addEventListener("mouseenter", () => {
+      this.isCursorOver = true;
+      this.targetRotationX = 0;
+      this.targetRotationY = 0;
+    });
+
+    this.canvas.addEventListener("mouseleave", () => {
+      this.isCursorOver = false;
+      // Cuando el cursor sale, vuelve a la rotación inicial + sway
+      this.targetRotationX = this.options.rotationInitial.x;
+      this.targetRotationY = this.options.rotationInitial.y;
+    });
+  }
+
+  _render(time = 0) {
     const gl = this.gl;
+    const deltaTime = (time - this._lastTime) / 1000;
+    this._lastTime = time;
 
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    gl.clearColor(0,0,0,0);
+    gl.clearColor(0, 0, 0, 0);
     gl.clearDepth(1);
     gl.enable(gl.DEPTH_TEST);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.perspective(
-      this.projectionMatrix,
-      (50 * Math.PI) / 250,
-      this.canvas.width / this.canvas.height,
-      0.1,
-      100
-    );
+    // Si la animación está habilitada y el cursor NO está sobre el canvas,
+    // aplicar sway oscilante (movimiento suave) en X y Y
+    if (this.options.animationEnabled && !this.isCursorOver) {
+      const swayX =
+        Math.cos(time * 0.001 * this.options.swaySpeed * 1.3) *
+        this.options.swayIntensity;
+      const swayY =
+        Math.sin(time * 0.001 * this.options.swaySpeed) *
+        this.options.swayIntensity;
+
+      this.targetRotationX = this.options.rotationInitial.x + swayX;
+      this.targetRotationY = this.options.rotationInitial.y + swayY;
+    }
+
+    // Lerpear rotación para suavizar movimiento
+    const lerp = (a, b, f) => a + (b - a) * f;
+    const lerpSpeed = 1;
+    this.rotationX = lerp(this.rotationX, this.targetRotationX, lerpSpeed);
+    this.rotationY = lerp(this.rotationY, this.targetRotationY, lerpSpeed);
+
+    // Reset matrices
     mat4.identity(this.modelViewMatrix);
     mat4.translate(this.modelViewMatrix, this.modelViewMatrix, [0, 0, -24]);
-
-    const lerp = (a, b, f) => a + (b - a) * f;
-    const LERP_SPEED = 0.08;
-    this.rotationX = lerp(this.rotationX, this.targetRotationX, LERP_SPEED);
-    this.rotationY = lerp(this.rotationY, this.targetRotationY, LERP_SPEED);
-
     mat4.rotate(
       this.modelViewMatrix,
       this.modelViewMatrix,
       this.rotationX,
-      [-1, 1, 1]
+      [1, 0, 0]
     );
     mat4.rotate(
       this.modelViewMatrix,
@@ -454,8 +506,8 @@ export class HeadModel {
       gl.uniform1i(this.programInfo.uniformLocations.sampler, 0);
     }
 
-    gl.drawElements(gl.TRIANGLES, 72, gl.UNSIGNED_SHORT, 0); // 36 indices base + 36 overlay
+    gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
 
-    requestAnimationFrame(this.render.bind(this));
-  } 
+    requestAnimationFrame(this._render.bind(this));
+  }
 }

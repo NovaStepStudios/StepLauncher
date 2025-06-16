@@ -1,24 +1,29 @@
-const { app } = require('electron');
-const {StepLauncher} = require('./core/mainWindow.js');
-const os = require('os');
+const { app, BrowserWindow } = require("electron");
+const StepLauncher = require("./core/mainWindow.js"); // ahora sí es función
 
-if (os.platform() === "linux") {
-  app.disableHardwareAcceleration();
-  console.log("Aceleración de hardware desactivada");
+let isStarted = false;
+
+async function launchOnce() {
+  if (!isStarted || BrowserWindow.getAllWindows().length === 0) {
+    await StepLauncher(); // ← llama a main()
+    isStarted = true;
+  } else {
+    const win = BrowserWindow.getAllWindows()[0];
+    win?.show();
+    win?.focus();
+  }
 }
 
-app.whenReady().then(()=>{
-    StepLauncher();
+app
+  .whenReady()
+  .then(launchOnce)
+  .catch((err) => {
+    console.error("Error al iniciar StepLauncher:", err);
+    app.quit();
+  });
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
 });
 
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
-});
-
-app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-        StepLauncher();
-    }
-});
+app.on("activate", launchOnce);

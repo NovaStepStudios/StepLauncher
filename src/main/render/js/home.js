@@ -1,10 +1,44 @@
 import { showNotification } from "./global/Notification.js";
 import { HeadModel } from "./skin/head.js";
 
+function loadConfig() {
+  try {
+    const configApplied = window.electronAPI?.loadConfig() || {};
+    const cssVars = {
+      "color-primary-theme": "--bg-tittlebar-principal",
+      "color-secondary-theme": "--bg-tittlebar-secundary",
+      "color-primary-ui": "--items-color-principal",
+      "color-secondary-ui": "--items-color-secundary",
+    };
+
+    // Mapeo de keys para coincidir con la estructura real de configApplied.apariencia
+    const mapping = {
+      "color-primary-theme": "colorPrimarioTema",
+      "color-secondary-theme": "colorSecundarioTema",
+      "color-primary-ui": "colorPrimarioUI",
+      "color-secondary-ui": "colorSecundarioUI",
+    };
+
+    Object.entries(cssVars).forEach(([id, cssVar]) => {
+      const key = mapping[id];
+      const value = configApplied.apariencia?.[key] || configApplied[id];
+      if (value != null) {
+        document.documentElement.style.setProperty(cssVar, value);
+      }
+    });
+
+    return configApplied;
+  } catch (e) {
+    console.error("Error en loadConfig:", e);
+    return {};
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const canvas = document.getElementById("HeadModel");
   const skin = "../assets/img/skin.png";
   const engine = new HeadModel(canvas, skin);
+  loadConfig();
 
   const META = {
     SettingsItem: { title: "Opciones", src: "./layouts/config.html" },
@@ -92,7 +126,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     panelsWrapper.classList.remove("active");
   }
 
-  // Función para mostrar un panel
   function showPanel(key) {
     hideAllPanels();
     const panel = panelsMap.get(key);
@@ -102,22 +135,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     panelsWrapper.classList.add("active");
   }
 
-  // Manejo de clicks en barra lateral
   sideItems.forEach((btn) =>
     btn.addEventListener("click", () => {
       const key = btn.id;
-
-      // Si ya está activo, se cierra
       if (btn.classList.contains("active")) {
         hideAllPanels();
         btn.classList.remove("active");
         return;
       }
-
-      // Desactiva todos los botones y activa solo el clickeado
       sideItems.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
-
       showPanel(key);
     })
   );
@@ -127,5 +154,5 @@ document.addEventListener("DOMContentLoaded", async () => {
       type: "accepted",
       text: "Paneles cargados correctamente",
     });
-  }, 100);
+  }, 1000);
 });

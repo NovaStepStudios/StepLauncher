@@ -1,115 +1,318 @@
-// main.js (entrypoint de Electron)
-const { app, BrowserWindow, ipcMain } = require("electron");
-const { MinecraftDownloader, MinecraftEjecuting } = require("./libs/Minecraft");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { sendNotification } = require("./notifications.js");
 const path = require("path");
 const fs = require("fs").promises;
 const os = require("os");
 
-/* ───────── Helpers de rutas ────────── */
-const getRootDir = () => ".StepLauncher"; // ~/.StepLauncher
-const getVersionsDir = () => path.join(getRootDir(), "versions"); // ~/.StepLauncher/versions
+const { createTray } = require("./tray.js");
+const { MinecraftDownloader } = require("./libs/Minecraft/index");
+const { Client, Authenticator } = require("minecraft-launcher-core");
 
-/* ───────── Ventana principal ───────── */
-let win;
-function StepLauncher() {
+let tray = null;
+let win = null;
+const MB = 1024;
+
+// ───────── Paths ─────────
+const getRootDir = () => path.join(os.homedir(), ".StepLauncher");
+const getVersionsDir = () => path.join(getRootDir(), "versions");
+const getConfigPath = () => path.join(getRootDir(), "config.json");
+
+// ───────── Utils ─────────
+async function ensureDir(dir) {
+  try {
+    await fs.mkdir(dir, { recursive: true });
+  } catch {}
+}
+
+const defaultConfig = {
+  minecraftDir: getRootDir(),
+  launcher: {
+    closeLauncherOnStart: false,
+    disable3DModels: false,
+    hardwareAcceleration: true,
+    minimizeOnClose: false,
+  },
+  minecraft: {
+    rutaJava: "",
+    minRam: "1G",
+    maxRam: "4G",
+    resolucion: { width: 854, height: 480, fullscreen: false },
+  },
+  cuenta: { username: "Default", uuid: "" },
+};
+
+async function readConfig() {
+  let config = {};
+  let changed = false;
+
+  try {
+    const raw = await fs.readFile(getConfigPath(), "utf-8");
+    config = JSON.parse(raw);
+  } catch {
+    changed = true;
+  }
+
+  function mergeDefaults(obj, defaults) {
+    for (const key in defaults) {
+      if (!(key in obj)) {
+        obj[key] = defaults[key];
+        changed = true;
+      } else if (
+        typeof obj[key] === "object" &&
+        obj[key] !== null &&
+        !Array.isArray(obj[key])
+      ) {
+        mergeDefaults(obj[key], defaults[key]);
+      }
+    }
+  }
+
+  mergeDefaults(config, defaultConfig);
+
+  if (changed) {
+    try {
+      await ensureDir(getRootDir());
+      await fs.writeFile(
+        getConfigPath(),
+        JSON.stringify(config, null, 2),
+        "utf-8"
+      );
+    } catch (e) {
+      console.error("Error guardando config:", e);
+    }
+  }
+
+  return config;
+}
+
+function normalizeRam(value, fallbackMb = 2048) {
+  let mb;
+  if (typeof value === "string") {
+    const val = value.trim().toLowerCase();
+    mb = val.endsWith("g") ? parseFloat(val) * MB : parseInt(val);
+  } else {
+    mb = Number(value);
+  }
+  if (!Number.isFinite(mb) || mb <= 0) mb = fallbackMb;
+  const g = Math.max(1, Math.round(mb / MB));
+  return { mb, jvm: `${g}G` };
+}
+
+function buildBaseOptions(cfg) {
+  const { jvm: minJvm } = normalizeRam(cfg.minecraft?.minRam ?? "1G");
+  const { jvm: maxJvm } = normalizeRam(cfg.minecraft?.maxRam ?? "4G");
+
+  const res = cfg.minecraft?.resolucion ?? {};
+  const width = res.fullscreen ? undefined : res.width ?? 854;
+  const height = res.fullscreen ? undefined : res.height ?? 480;
+
+  const javaPath = cfg.minecraft?.rutaJava?.trim()
+    ? cfg.minecraft.rutaJava
+    : path.join(
+        getRootDir(),
+        "runtime",
+        "java17",
+        "bin",
+        os.platform() === "win32" ? "java.exe" : "java"
+      );
+
+  return {
+    root: cfg.minecraftDir ?? getRootDir(),
+    javaPath,
+    memory: { min: minJvm, max: maxJvm },
+    window: { width, height, fullscreen: !!res.fullscreen },
+  };
+}
+
+// ───────── Main Window ─────────
+function createMainWindow() {
+  const config = global.appConfig;
+
   win = new BrowserWindow({
     width: 1200,
     height: 600,
+    minWidth: 900,
+    minHeight: 600,
     frame: false,
     resizable: true,
     icon: path.join(__dirname, "icon.ico"),
     title: "StepLauncher",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
-      nodeIntegration: false,
       contextIsolation: true,
-      webgl: true,
-      webSecurity: true,
+      sandbox: false,
+      webgl: !config.launcher.disable3DModels,
     },
   });
+
+  if (config.launcher.minimizeOnClose) {
+    win.on("close", (e) => {
+      e.preventDefault();
+      win.hide();
+    });
+  } else {
+    win.on("closed", () => (win = null));
+  }
 
   win.loadFile(path.join(__dirname, "../main/public/home.html"));
   win.on("closed", () => (win = null));
 }
 
-/* ───────── DESCARGA DE VERSIONES ───── */
-ipcMain.handle("DownloadMinecraft", async (event, opts = {}) => {
-  const { type, version } = opts;
+// ───────── IPC ─────────
+ipcMain.on("window:minimize", () => win?.minimize());
+ipcMain.on("window:toggle-maximize", () => {
+  if (!win) return;
+  win.isMaximized() ? win.unmaximize() : win.maximize();
+});
+ipcMain.on("window:close", () => win?.close());
+ipcMain.on("window:request-maximized-state", (e) => {
+  if (win) e.sender.send("window:maximized-state", win.isMaximized());
+});
+
+ipcMain.handle("open-file-dialog", async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "gif"] }],
+  });
+  return canceled ? null : filePaths[0];
+});
+
+ipcMain.handle("DownloadMinecraft", async (evt, { type, version } = {}) => {
   if (!type || !version) {
-    return event.sender.send(
-      "download-error",
-      "Faltan parámetros obligatorios: type y/o version"
-    );
+    evt.sender.send("download-error", "Faltan parámetros");
+    return;
   }
 
   const downloader = new MinecraftDownloader(getRootDir(), false, type);
-
-  downloader.on("progress", (m) => event.sender.send("download-progress", m));
-  downloader.on("error", (e) => event.sender.send("download-error", e));
-  downloader.on("done", (m) => event.sender.send("download-done", m));
+  downloader.on("progress", (m) => evt.sender.send("download-progress", m));
+  downloader.on("error", (e) => evt.sender.send("download-error", e));
+  downloader.on("done", (m) => evt.sender.send("download-done", m));
 
   try {
     await downloader.download(version);
   } catch (e) {
-    event.sender.send("download-error", e.message || String(e));
+    evt.sender.send("download-error", e.message || String(e));
   }
 });
 
-/* ───────── LISTAR VERSIONES INSTALADAS ───── */
-async function getInstalledMinecraftVersions() {
-  const ids = new Set();
-  const dir = getVersionsDir();
-
+ipcMain.handle("get-installed-versions", async () => {
+  const versions = new Set();
   try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+    const dirs = await fs.readdir(getVersionsDir(), { withFileTypes: true });
+    for (const dir of dirs) {
+      if (!dir.isDirectory()) continue;
       try {
-        const raw = await fs.readFile(
-          path.join(dir, entry.name, `${entry.name}.json`),
-          "utf-8"
+        const jsonPath = path.join(
+          getVersionsDir(),
+          dir.name,
+          `${dir.name}.json`
         );
-        const { id } = JSON.parse(raw);
-        if (id) ids.add(id);
-      } catch {
-        /* JSON corrupto: se ignora */
-      }
+        const data = await fs.readFile(jsonPath, "utf-8");
+        const { id } = JSON.parse(data);
+        if (id) versions.add(id);
+      } catch {}
     }
-  } catch (err) {
-    console.error("[getInstalledVersions]", err);
-  }
+  } catch {}
+  return [...versions].sort();
+});
+let isLaunching = false;
 
-  return [...ids].sort();
-}
-ipcMain.handle("get-installed-versions", getInstalledMinecraftVersions);
+ipcMain.handle("EjecutingMinecraft", async (evt, versionID) => {
+  if (isLaunching)
+    return { success: false, error: "Minecraft ya se está ejecutando." };
 
-/* ───────── EJECUTAR MINECRAFT ───── */
-ipcMain.handle("EjecutingMinecraft", async (event, versionID) => {
+  if (!versionID?.trim())
+    return { success: false, error: "Versión no válida." };
+
+  isLaunching = true;
+
   try {
-    if (typeof versionID !== "string" || !versionID.trim()) {
-      throw new Error("Versión no especificada o inválida");
-    }
+    const cfg = await readConfig();
+    const base = buildBaseOptions(cfg);
 
-    const launcher = new MinecraftEjecuting();
+    // Autenticación básica con username y uuid
+    const auth = Authenticator.getAuth(cfg.cuenta?.username || "Default");
+    if (cfg.cuenta?.uuid?.trim()) auth.uuid = cfg.cuenta.uuid;
 
-    const launchOpts = {
+    const launcher = new Client();
+
+    // Eventos para enviar logs y estado al frontend
+    launcher.on("debug", (msg) =>
+      evt.sender.send("minecraft-debug", msg.toString())
+    );
+    launcher.on("data", (msg) =>
+      evt.sender.send("minecraft-data", msg.toString())
+    );
+    launcher.on("error", (err) =>
+      evt.sender.send("minecraft-error", err.message || String(err))
+    );
+    launcher.on("close", (code) => {
+      isLaunching = false;
+      evt.sender.send("minecraft-close", code);
+
+      // Mostrar ventana launcher si está configurado así
+      if (cfg.launcher?.closeLauncherOnStart && win) win.show();
+    });
+
+    // Ocultar ventana launcher si corresponde
+    if (cfg.launcher?.closeLauncherOnStart && win) win.hide();
+
+    // Lanzar Minecraft con parámetros correctos
+    await launcher.launch({
+      authorization: auth,
       root: getRootDir(),
-      javaPath:
-        "/home/stepnickasantiago/Descargas/jre-8u451-linux-x64 (1)/jre1.8.0_451/bin/java",
-      memory: { max: "6G", min: "1G" },
-      window: { width: 854, height: 480, fullscreen: false },
-      version: { versionID, type: "release" },
-      user: { name: "default_user" },
-    };
+      version: { number: versionID, type: "release" }, // Aquí podrías ajustar 'type' dinámicamente si quieres
+      memory: base.memory,
+      javaPath: base.javaPath,
+      window: base.window,
+    });
 
-    launcher.on("debug", (m) => event.sender.send("minecraft-debug", m));
-    launcher.on("data", (m) => event.sender.send("minecraft-data", m));
+    // Notificación de éxito
+    sendNotification({
+      title: "StepLauncher",
+      body: `¡Minecraft versión ${versionID} se abrió exitosamente!`,
+      icon: path.join(__dirname, "icon.ico"),
+      silent: false,
+    });
 
-    await launcher.launch(launchOpts);
-  } catch (err) {
-    console.log("Error lanzando Minecraft:", err);
+    return { success: true };
+  } catch (error) {
+    isLaunching = false;
+    if (win) win.show();
+
+    // Mandar error al frontend para que pueda mostrarlo en logs
+    evt.sender.send("minecraft-error", error.message || String(error));
+
+    return { success: false, error: error.message || String(error) };
   }
 });
 
-module.exports = { StepLauncher };
+
+// ───────── Main ─────────
+async function main() {
+  await ensureDir(getVersionsDir());
+  const config = await readConfig();
+
+  global.appConfig = config;
+  await app.whenReady();
+
+  createMainWindow();
+
+  if (!tray) {
+    tray = createTray(config, win, createMainWindow);
+  }
+
+  app.on("activate", () => {
+    if (!win || win.isDestroyed()) createMainWindow();
+    else {
+      win.show();
+      win.focus();
+    }
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+  });
+}
+
+module.exports = main;

@@ -32,8 +32,9 @@
   },
   "homepage": "https://github.com/NovaStepStudios/StepLauncher#readme",
   "devDependencies": {
-    "electron": "^36.4.0",
     "adm-zip": "^0.5.16",
+    "electron": "^36.4.0",
+    "minecraft-launcher-core": "^3.18.2",
     "node-fecth": "^0.0.1-security"
   },
   "dependencies": {

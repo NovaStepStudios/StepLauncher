@@ -6,8 +6,10 @@
     ,url("../../assets/background/Fondos/2.png");
     --items-color-principal: #000;
     --items-color-secundary: rgb(48, 48, 48);
+    --transparent: 1;
     --notification-color-principal: #222;
     --notification-color-secundary: #000;
+    --titlebar-transparent: 1;
 }
 @font-face {
     font-family: AvernirBlack;
@@ -65,7 +67,6 @@ body {
         }
         &:hover{
             scale: 1.01;
-            padding: 0 1rem;
             &::before{
                 content: '';
                 position: absolute;
@@ -99,6 +100,7 @@ hr{
         background-color: #3399ff;
     }
 }
+
 .TittleBar {
     position: fixed;
     top: 0;
@@ -109,6 +111,7 @@ hr{
     display: flex;
     justify-content: space-between;
     align-items: center;
+    opacity: var(--titlebar-transparent);
     background-color: color-mix(in srgb, 15% var(--bg-tittlebar-principal), 70% var(--bg-tittlebar-secundary));
     -webkit-app-region: drag;
     backdrop-filter: blur(0.1rem);
@@ -133,7 +136,7 @@ hr{
     width: 2.5rem;
 }
 
-.TittleBar .Buttons {
+.TittleBar .window-controls {
     margin-right: 0.5rem;
     display: flex;
     justify-content: center;
@@ -141,16 +144,16 @@ hr{
     height: 100%;
 }
 
-.TittleBar .Buttons button {
-    -webkit-app-region: no-drag;
+.TittleBar .window-controls button {
+    -webkit-app-region: no-drag !important;
     width: 2.5rem;
-    height: 100%;
+    height: 2.5rem;
     object-fit: cover;
     color: white;
     background-color: transparent;
 }
 
-.TittleBar .Buttons button:hover {
+.TittleBar .window-controls button:hover {
     background-color: color-mix(in srgb, 20% var(--bg-tittlebar-principal), 50% black);
 }
 @keyframes Pulse{
@@ -172,7 +175,8 @@ hr{
     width: 25rem;
     height: 3rem;
     padding: 0.2rem 0.5rem;
-    border: 0.1rem solid var(--notification-color-secundary);
+    border: 0.1rem solid var(--items-color-principal);
+    pointer-events: none;
     border-radius: 0.5rem;
     z-index: 500;
     display: flex;
@@ -205,12 +209,12 @@ hr{
 
 .Notification.error{
     background: linear-gradient(45deg,var(--notification-color-principal) 50%,red);
-    animation: FadeInNotification 1.5s ease-in-out forwards,
+    animation: FadeInNotification 0.5s ease-in-out forwards,
             FadeOutNotification 3s ease-in-out 4s forwards;
 }
 .Notification.accepted{
     background: linear-gradient(45deg,var(--notification-color-principal) 0%,rgb(15, 201, 15));
-    animation: FadeInNotification 1.5s ease-in-out forwards,
+    animation: FadeInNotification 0.5s ease-in-out forwards,
             FadeOutNotification 3s ease-in-out 4s forwards;
 }
 @keyframes FadeOutNotification {

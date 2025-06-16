@@ -1,6 +1,14 @@
 const notificationQueue = [];
 let isShowingNotification = false;
 
+// Mapa de sonidos para cada tipo de notificación
+const notificationSounds = {
+  accepted: new Audio("../assets/sounds/Notification-1.mp3"),
+  error: new Audio("../assets/sounds/Notification-5.mp3"),
+  warning: new Audio("../assets/sounds/Notification-5.mp3"),
+  info: new Audio("../assets/sounds/Notification-1.mp3"),
+};
+
 export function showNotification({
   type = "accepted",
   icon = "check_circle",
@@ -23,6 +31,18 @@ function processQueue() {
     document.getElementById("Notification") || createNotificationContainer();
   const iconEl = document.getElementById("IconNotification");
   const textEl = document.getElementById("TextNotification");
+
+  // Reproducir sonido correspondiente si existe
+  const sound = notificationSounds[type];
+  if (sound) {
+    // Para reiniciar el sonido si se llama rápido seguido
+    sound.pause();
+    sound.currentTime = 0;
+    sound.play().catch((e) => {
+      // Puede fallar si el usuario no ha interactuado con la página
+      console.warn("No se pudo reproducir el sonido:", e);
+    });
+  }
 
   notification.className = "Notification";
   notification.classList.add(type);

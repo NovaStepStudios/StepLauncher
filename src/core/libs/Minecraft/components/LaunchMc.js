@@ -214,37 +214,44 @@ class MinecraftEjecuting extends EventEmitter {
   async _loadOrCreateUser(rootPath) {
     const profilesPath = path.resolve(rootPath, "launcher_profiles.json");
 
-    let profiles = [];
-
+    let profilesData = {};
     try {
       const rawData = await fsPromises.readFile(profilesPath, "utf-8");
-      profiles = JSON.parse(rawData);
-      if (!Array.isArray(profiles)) profiles = [];
+      profilesData = JSON.parse(rawData);
     } catch {
-      // No existe o está corrupto, dejamos vacío
+      // archivo no existe o corrupto
     }
 
-    const existingProfile = profiles.find(
-      (p) => p.type === "legacy" && p.uuid && p.accessToken
-    );
-
-    if (existingProfile) {
-      return existingProfile;
+    if (!profilesData.profiles || typeof profilesData.profiles !== "object") {
+      profilesData.profiles = {};
     }
+
+    // Buscar perfil legacy válido
+    for (const key in profilesData.profiles) {
+      const p = profilesData.profiles[key];
+      if (p.type === "legacy" && p.uuid && p.accessToken) {
+        return p;
+      }
+    }
+
+    // Si no existe, crear nuevo perfil
+    const newUUID = crypto.randomUUID();
+    const newAccessToken = crypto.randomBytes(32).toString("hex");
+    const newName = this.options.user?.name || "Player";
 
     const newUser = {
       type: "legacy",
-      name: this.options.user?.name || "Player",
-      uuid: crypto.randomUUID(),
-      accessToken: crypto.randomBytes(32).toString("hex"),
+      name: newName,
+      uuid: newUUID,
+      accessToken: newAccessToken,
     };
 
-    profiles.push(newUser);
+    profilesData.profiles[newUUID] = newUser;
 
     try {
       await fsPromises.writeFile(
         profilesPath,
-        JSON.stringify(profiles, null, 2),
+        JSON.stringify(profilesData, null, 2),
         "utf-8"
       );
     } catch (e) {

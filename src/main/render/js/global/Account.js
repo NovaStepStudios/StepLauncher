@@ -1,5 +1,5 @@
 export function applyUsernameToDOM(name) {
-  if (!name) return; // Evitar ejecución automática sin nombre válido
+  if (!name) return;
 
   const usernameElements = document.querySelectorAll("#Username");
   usernameElements.forEach((el) => {
@@ -7,12 +7,11 @@ export function applyUsernameToDOM(name) {
   });
 }
 
-// Ejecutar automáticamente si es cargado directamente y variable global existe
 if (typeof window !== "undefined") {
   window.addEventListener("DOMContentLoaded", () => {
-    // Usar una variable global opcional (por ejemplo, window.MyName)
-    if (window.MyName) {
-      applyUsernameToDOM(window.MyName);
+    if (window.userAPI?.getUsername) {
+      const username = window.userAPI.getUsername();
+      applyUsernameToDOM(username);
     }
   });
 }

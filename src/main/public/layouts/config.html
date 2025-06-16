@@ -7,120 +7,150 @@
     <div class="SideBarItem" data-target="apariencia" style="cursor:pointer;">Apariencia</div>
     <div class="SideBarItem" data-target="dev" style="cursor:pointer;">Desarrollador</div>
     <div class="SideBarItem close-btn" style="cursor:pointer;">Guardar</div>
+    <button id="btn-apply-config" class="Submit" style="width: 90%; margin:auto;">Aplicar</button>
   </div>
 
   <!-- Paneles -->
   <div class="PanelContainerConfig">
     <!-- Panel: Launcher -->
-    <div class="PanelConfig active" data-panel="launcher">
+    <div class="PanelConfig active" data-panel="launcher" id="panel-launcher">
       <div class="config-section">
         <h2>Cuenta</h2>
-        <label>Nombre de usuario
-          <input type="text" placeholder="Username" />
+        <label for="input-username">Nombre de usuario
+          <input type="text" id="input-username" maxlength="17" placeholder="Username" />
         </label>
-        <label>UUID
-          <input type="text" placeholder="UUID" />
+        <label for="input-uuid">UUID
+          <input type="text" id="input-uuid" placeholder="UUID" />
         </label>
         <div class="VisualizerContainer">
           <div class="Visualizer">
-            <canvas id="skin_container">
-            </canvas>
+            <canvas id="skin_container"></canvas>
           </div>
           <div class="SubmitContainer">
-            <button class="Submit">Subir Skin</button>
-            <button class="Submit">Subir Capa</button>
+            <button class="Submit" id="btn-upload-skin">Subir Skin</button>
+            <button class="Submit" id="btn-upload-cape">Subir Capa</button>
           </div>
         </div>
         <h2>Launcher</h2>
-        <label><input type="checkbox" /> Cerrar launcher al iniciar minecraft</label>
-        <button>Modo Gamer</button>
+        <button id="btn-gamer-mode">Modo Gamer</button>
         <h2>Sonidos al iniciar</h2>
-        <select>
+        <select id="select-startup-sounds">
           <option value=""></option>
           <option value=""></option>
           <option value=""></option>
           <option value=""></option>
         </select>
-        <button>Reproducir</button>
+        <button id="btn-play-sound">Reproducir</button>
         <h2>Comportamiento</h2>
-        <label><input type="checkbox" /> Aceleración por hardware</label>
-        <label><input type="checkbox" /> Minimizar al cerrar</label>
+        <label for="checkbox-close-launcher">
+          <input type="checkbox" id="checkbox-close-launcher" />
+          Cerrar launcher al iniciar minecraft
+        </label>
+        <label for="checkbox-disable-3d">
+          <input type="checkbox" id="checkbox-disable-3d" />
+          Desactivar Modelos 3D ( Requiere reiniciar la app)
+        </label>
+        <label for="checkbox-hw-acceleration">
+          <input type="checkbox" id="checkbox-hw-acceleration" />
+          Aceleración por hardware
+        </label>
+        <label for="checkbox-minimize-close">
+          <input type="checkbox" id="checkbox-minimize-close" />
+          Minimizar al cerrar
+        </label>
       </div>
     </div>
-
+  
     <!-- Panel: Minecraft -->
-    <div class="PanelConfig" data-panel="minecraft">
+    <div class="PanelConfig" data-panel="minecraft" id="panel-minecraft">
       <div class="config-section">
         <h2>Ruta .minecraft</h2>
-        <label>Directorio:
-          <input type="text" placeholder="C:\Users\Usuario\AppData\.minecraft" />
+        <label for="input-minecraft-path">Directorio:
+          <input type="text" id="input-minecraft-path" placeholder="C:\Users\Usuario\AppData\.minecraft" />
         </label>
       </div>
       <div class="config-section">
         <h2>Java</h2>
-        <label>Ruta del ejecutable Java:
-          <input type="text" placeholder="C:\Program Files\Java\bin\javaw.exe" />
+        <label for="input-java-path">Ruta del ejecutable Java:
+          <input type="text" id="input-java-path" placeholder="C:\Program Files\Java\bin\javaw.exe" />
         </label>
         <hr />
-        <label>Memoria RAM (MB):
-          <input type="number" min="512" step="512" value="4096" />
+        <label for="input-ram">Memoria RAM (MB):
+          <input type="number" id="input-ram" min="512" step="512" value="4096" />
         </label>
       </div>
       <div class="config-section">
         <h2>Resolución</h2>
-        <label>Ancho (px):
-          <input type="number" value="1280" />
+        <label for="input-width">Ancho (px):
+          <input type="number" id="input-width" value="854" />
         </label>
-        <label>Alto (px):
-          <input type="number" value="720" />
+        <label for="input-height">Alto (px):
+          <input type="number" id="input-height" value="480" />
         </label>
-        <label><input type="checkbox" /> Pantalla completa</label>
+        <label for="checkbox-fullscreen">
+          <input type="checkbox" id="checkbox-fullscreen" />
+          Pantalla completa
+        </label>
       </div>
     </div>
-
+  
     <!-- Panel: Apariencia -->
-    <div class="PanelConfig" data-panel="apariencia">
+    <div class="PanelConfig" data-panel="apariencia" id="panel-apariencia">
       <div class="config-section">
         <h2>Tema</h2>
-        <label>Barra de título</label>
-        <label>Color Primario
-          <input type="color" />
+        <label for="color-titlebar">Barra de título</label>
+        <label for="color-primary-theme">Color Primario
+          <input type="color" id="color-primary-theme" />
         </label>
-        <label>Color Secundario
-          <input type="color" />
+        <label for="color-secondary-theme">Color Secundario
+          <input type="color" id="color-secondary-theme" />
+        </label>
+        <label for="transparentTittle">Transpariencia
+          <input type="range" id="transparentTittle" min="0" max="100">
         </label>
         <hr />
         <h3>Elementos</h3>
-        <label>Color Primario
-          <input type="color" />
+        <label for="color-primary-ui">Color Primario
+          <input type="color" id="color-primary-ui" />
         </label>
-        <label>Color Secundario
-          <input type="color" />
+        <label for="color-secondary-ui">Color Secundario
+          <input type="color" id="color-secondary-ui" />
+        </label>
+        <label for="transparent">Transpariencia
+          <input type="range" id="transparent" min="0" max="100">
         </label>
         <hr />
       </div>
       <div class="config-section">
         <h2>Fondo personalizado</h2>
-        <label>Imagen de fondo / video:</label>
-        <button class="SubmitArchive">Subir archivo</button>
+        <label for="btn-upload-bg">Imagen de fondo / video:</label>
+        <button class="SubmitArchive" id="btn-upload-bg">Subir archivo</button>
       </div>
     </div>
-
+  
     <!-- Panel: Desarrollador -->
-    <div class="PanelConfig" data-panel="dev">
+    <div class="PanelConfig" data-panel="dev" id="panel-dev">
       <div class="config-section">
         <h2>Descargas Opcionales</h2>
-        <button>Instalar StepServer</button>
-        <button>Instalar Java</button>
-        <select>
+        <button id="btn-install-java">Instalar Java</button>
+        <select id="select-java-version">
           <option value="">Java24</option>
           <option value="">Java17</option>
         </select>
         <h2>Opciones Avanzadas</h2>
-        <label><input type="checkbox" /> Mostrar consola debug</label>
-        <label><input type="checkbox" /> Guardar logs del juego</label>
-        <label><input type="checkbox" /> Habilitar devTools</label>
-        <button>Importar CSS</button>
+        <label for="checkbox-debug-console">
+          <input type="checkbox" id="checkbox-debug-console" />
+          Mostrar consola debug
+        </label>
+        <label for="checkbox-save-logs">
+          <input type="checkbox" id="checkbox-save-logs" checked/>
+          Guardar logs del juego
+        </label>
+        <label for="checkbox-devtools">
+          <input type="checkbox" id="checkbox-devtools" />
+          Habilitar devTools
+        </label>
+        <button id="btn-import-css">Importar CSS</button>
         <div
           style="
             position: relative;
@@ -144,6 +174,6 @@
         </div>
       </div>
     </div>
-  </div>
+  </div>  
 </div>
 <script type="module" src="../render/js/layouts/config.js"></script>
