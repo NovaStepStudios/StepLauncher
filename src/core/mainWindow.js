@@ -1,10 +1,11 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { createTray } = require("./tray.js");
+const { pathToFileURL } = require("url");
 const { sendNotification } = require("./notifications.js");
 const path = require("path");
 const fs = require("fs").promises;
 const os = require("os");
 
-const { createTray } = require("./tray.js");
 const { MinecraftDownloader } = require("./libs/Minecraft/index");
 const { Client, Authenticator } = require("minecraft-launcher-core");
 
@@ -97,30 +98,40 @@ function normalizeRam(value, fallbackMb = 2048) {
   const g = Math.max(1, Math.round(mb / MB));
   return { mb, jvm: `${g}G` };
 }
-
 function buildBaseOptions(cfg) {
   const { jvm: minJvm } = normalizeRam(cfg.minecraft?.minRam ?? "1G");
   const { jvm: maxJvm } = normalizeRam(cfg.minecraft?.maxRam ?? "4G");
 
-  const res = cfg.minecraft?.resolucion ?? {};
-  const width = res.fullscreen ? undefined : res.width ?? 854;
-  const height = res.fullscreen ? undefined : res.height ?? 480;
+  /* Resolución de la ventana */
+  const res     = cfg.minecraft?.resolucion ?? {};
+  const width   = res.fullscreen ? undefined : res.width  ?? 854;
+  const height  = res.fullscreen ? undefined : res.height ?? 480;
 
-  const javaPath = cfg.minecraft?.rutaJava?.trim()
-    ? cfg.minecraft.rutaJava
-    : path.join(
-        getRootDir(),
-        "runtime",
-        "java17",
-        "bin",
-        os.platform() === "win32" ? "java.exe" : "java"
-      );
+  /*  ───── Java ─────  */
+  const customJava = (cfg.minecraft?.rutaJava || "").trim();
+  let javaPath;
+
+  if (customJava) {
+    // Permitir que el usuario apunte a la carpeta /bin o al ejecutable.
+    const endsWithExe = /\bjava(w?)(\.exe)?$/i.test(path.basename(customJava));
+    javaPath = endsWithExe
+      ? customJava                                // ya es el ejecutable
+      : path.join(customJava, os.platform() === "win32" ? "javaw.exe"
+                                                        : "java");
+  } else {
+    // Java embebido que distribuyas con StepLauncher
+    const runtimeBin = path.join(getRootDir(), "runtime", "java17", "bin");
+    javaPath = path.join(
+      runtimeBin,
+      os.platform() === "win32" ? "javaw.exe" : "java"
+    );
+  }
 
   return {
-    root: cfg.minecraftDir ?? getRootDir(),
+    root   : cfg.minecraftDir ?? getRootDir(),
     javaPath,
-    memory: { min: minJvm, max: maxJvm },
-    window: { width, height, fullscreen: !!res.fullscreen },
+    memory : { min: minJvm, max: maxJvm },
+    window : { width, height, fullscreen: !!res.fullscreen },
   };
 }
 
@@ -131,7 +142,7 @@ function createMainWindow() {
   win = new BrowserWindow({
     width: 1200,
     height: 600,
-    minWidth: 900,
+    minWidth: 1000,
     minHeight: 600,
     frame: false,
     resizable: true,
@@ -151,12 +162,18 @@ function createMainWindow() {
       win.hide();
     });
   } else {
-    win.on("closed", () => (win = null));
+    win.on("closed", () => {
+      win = null;
+      if (tray) tray.destroy();
+      tray = null;
+      app.quit();
+    });
   }
 
   win.loadFile(path.join(__dirname, "../main/public/home.html"));
-  win.on("closed", () => (win = null));
+  return win;
 }
+
 
 // ───────── IPC ─────────
 ipcMain.on("window:minimize", () => win?.minimize());
@@ -168,13 +185,22 @@ ipcMain.on("window:close", () => win?.close());
 ipcMain.on("window:request-maximized-state", (e) => {
   if (win) e.sender.send("window:maximized-state", win.isMaximized());
 });
+ipcMain.on("GameMode",()=>{
+  if (win) {
+    fullscreen = true,
+    win.loadFile(path.join(__dirname, "../main/public/extra/gameMode.home.html"));
+  }
+});
 
 ipcMain.handle("open-file-dialog", async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ["openFile"],
     filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "gif"] }],
   });
-  return canceled ? null : filePaths[0];
+
+  if (canceled || filePaths.length === 0) return null;
+
+  return pathToFileURL(filePaths[0]).href;
 });
 
 ipcMain.handle("DownloadMinecraft", async (evt, { type, version } = {}) => {
@@ -183,7 +209,7 @@ ipcMain.handle("DownloadMinecraft", async (evt, { type, version } = {}) => {
     return;
   }
 
-  const downloader = new MinecraftDownloader(getRootDir(), false, type);
+  const downloader = new MinecraftDownloader(getRootDir(), true, type);
   downloader.on("progress", (m) => evt.sender.send("download-progress", m));
   downloader.on("error", (e) => evt.sender.send("download-error", e));
   downloader.on("done", (m) => evt.sender.send("download-done", m));
@@ -287,24 +313,23 @@ ipcMain.handle("EjecutingMinecraft", async (evt, versionID) => {
   }
 });
 
-
-// ───────── Main ─────────
 async function main() {
-  await ensureDir(getVersionsDir());
   const config = await readConfig();
-
   global.appConfig = config;
   await app.whenReady();
 
-  createMainWindow();
+  win = createMainWindow();
 
   if (!tray) {
-    tray = createTray(config, win, createMainWindow);
+    tray = createTray(config, () => win, () => {
+      win = createMainWindow();
+    });
   }
 
   app.on("activate", () => {
-    if (!win || win.isDestroyed()) createMainWindow();
-    else {
+    if (!win || win.isDestroyed()) {
+      win = createMainWindow();
+    } else {
       win.show();
       win.focus();
     }

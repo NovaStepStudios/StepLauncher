@@ -1,640 +1,264 @@
 /**
- * @author NovaStepStudios
- * 
+ * MinecraftDownloader v2 – NovaStep Studios
+ * 2025‑06‑17
+ * Reescrito para StepLauncher
  */
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const https = require("https");
-const EventEmitter = require("events");
-const tar = require("tar");
-const unzipper = require("unzipper");
+const fs          = require("fs");
+const fsp         = fs.promises;
+const path        = require("path");
+const os          = require("os");
+const https       = require("https");
+const { EventEmitter } = require("events");
+const tar         = require("tar");
+const unzipper    = require("unzipper");
+
+/* ─────────────── Utilidades ─────────────── */
 
 const ManifestURL =
   "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
+function fetchJson (url) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, res => {
+        let data = "";
+        res.on("data", c => (data += c));
+        res.on("end", () => {
+          try { resolve(JSON.parse(data)); }
+          catch (e) { reject(e); }
+        });
+      })
+      .on("error", reject);
+  });
+}
+
+function htmlProgress (action, pct = "—") {
+  return `[${action}] Descargando : ${pct} <span class="loader"></span>`;
+}
+function htmlDone     (action) {
+  return `[${action}] ¡Se ha descargado con éxito!`;
+}
+
+/* ─────────────── Clase ─────────────── */
+
 class MinecraftDownloader extends EventEmitter {
-  constructor(rootPath, downloadJava = true, type = "release") {
+  constructor (rootPath, downloadJava = true, type = "release") {
     super();
-    this.rootPath = rootPath;
-    this.downloadJavaEnabled = downloadJava;
-    this.configPath = path.join(__dirname, "config.json");
-    this.osName = this.getOSName();
-    this.type = type;
-
-    if (!fs.existsSync(this.configPath)) {
-      throw new Error("Archivo config.json no encontrado");
-    }
-
-    this.config = JSON.parse(fs.readFileSync(this.configPath, "utf-8"));
-  }
-
-  getOSName() {
-    const platform = os.platform();
-    if (platform === "win32") return "windows";
-    if (platform === "darwin") return "macOs";
-    if (platform === "linux") return "linux";
-    return "unknown";
-  }
-
-  async getVersionByType() {
-    this.emit(
-      "progress",
-      `Obteniendo la versión más reciente de tipo '${this.type}'...`
+    this.rootPath    = rootPath;
+    this.downloadJVM = downloadJava;
+    this.type        = type;
+    this.osName      = ({win32:"windows", darwin:"macOs", linux:"linux"})[os.platform()] || "unknown";
+    this.config      = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "config.json"), "utf8")
     );
-
-    const data = await this.fetchJson(ManifestURL);
-    const { latest, versions } = data;
-
-    // Según el tipo, obtenemos el id correcto
-    let versionId;
-    if (this.type === "release") {
-      versionId = latest.release;
-    } else if (this.type === "snapshot") {
-      versionId = latest.snapshot;
-    } else {
-      throw new Error(
-        `Tipo de versión inválido: ${this.type}. Usa "release" o "snapshot".`
-      );
-    }
-
-    const versionInfo = versions.find((v) => v.id === versionId);
-
-    if (!versionInfo) {
-      throw new Error(
-        `No se pudo obtener información para la versión ${versionId}`
-      );
-    }
-
-    return {
-      type: this.type,
-      version: versionId,
-      info: versionInfo,
-    };
   }
 
-  async fetchJson(url) {
+  /* ── Paso 0: conectividad ── */
+  async checkConnection (url = ManifestURL) {
+    await new Promise((res, rej) =>
+      https.get(url, r => (r.statusCode === 200 ? res() :
+        rej(new Error(`Sin conexión o HTTP ${r.statusCode}`))))
+           .on("error", rej)
+    );
+  }
+
+  /* ── Paso 1: determinar versión ── */
+  async resolveVersion (versionId) {
+    if (versionId) return versionId;
+
+    const {latest:{release,snapshot}} = await fetchJson(ManifestURL);
+    return this.type === "snapshot" ? snapshot : release;
+  }
+
+  /* ── Paso 2: descarga genérica con progreso ── */
+  downloadFile (url, dest, action) {
     return new Promise((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          let data = "";
-          res.on("data", (chunk) => (data += chunk));
-          res.on("end", () => resolve(JSON.parse(data)));
-        })
-        .on("error", reject);
-    });
-  }
-
-  async checkInternetConnection(url = ManifestURL) {
-    return new Promise((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          if (res.statusCode === 200) {
-            resolve(true);
-          } else {
-            reject(
-              new Error(
-                `Sin conexión o servidor inaccesible (${res.statusCode})`
-              )
-            );
-          }
-        })
-        .on("error", (err) => reject(new Error("No hay conexión a Internet")));
-    });
-  }
-
-  async download(versionId) {
-    try {
-      this.emit("progress", "Verificando conexión a Internet...");
-      await this.checkInternetConnection();
-
-      // Si no se especifica una versión, se usa la más reciente del tipo configurado automáticamente
-      if (!versionId) {
-        this.emit(
-          "progress",
-          `No se especificó una versión. Obteniendo la versión más reciente tipo '${this.type}'...`
-        );
-        const { version } = await this.getVersionByType();
-        versionId = version;
-      }
-
-      if (this.downloadJavaEnabled) {
-        await this.downloadJava();
-      }
-
-      this.emit("progress", "Creando estructura de carpetas...");
-      await this.createFolders();
-
-      this.emit("progress", `Iniciando descarga de Minecraft ${versionId}...`);
-      const versionData = await this.fetchManifestData(versionId);
-
-      this.emit("progress", "Descargando y extrayendo nativos...");
-      await this.downloadAndExtractNatives(versionData, versionId);
-
-      this.emit("progress", "Descargando librerías de Minecraft...");
-      await this.downloadLibraries(versionData);
-
-      this.emit("progress", "Descargando assets de Minecraft...");
-      await this.downloadAssets(versionData);
-
-      this.emit(
-        "progress",
-        "Descargando client.jar y guardando JSON de versión..."
-      );
-      await this.downloadClientAndSaveJson(versionData, versionId);
-
-      this.emit("done", `Minecraft ${versionId} descargado correctamente.`);
-    } catch (err) {
-      this.emit("error", err.message);
-    }
-  }
-
-  createFolders() {
-    const root = this.rootPath;
-    if (!fs.existsSync(root)) {
-      fs.mkdirSync(root, { recursive: true });
-    }
-
-    const { Folders, assets, versionNative } = this.config.structure;
-    Folders.forEach((folder) => {
-      const folderPath = path.join(root, folder);
-      if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true });
-      }
-    });
-    if (assets && Array.isArray(assets)) {
-      assets.forEach((asset) => {
-        const assetPath = path.join(root, "assets", asset);
-        if (!fs.existsSync(assetPath)) {
-          fs.mkdirSync(assetPath, { recursive: true });
+      const tmp   = `${dest}.part`;
+      const file  = fs.createWriteStream(tmp);
+      https.get(url, res => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode} – ${url}`));
+          return;
         }
+        const total = +res.headers["content-length"] || 0;
+        let done    = 0;
+
+        this.emit("progress", htmlProgress(action, "0 %"));
+
+        res.on("data", chunk => {
+          done += chunk.length;
+          if (total) {
+            const pct = Math.floor((done / total) * 100);
+            this.emit("progress", htmlProgress(action, `${pct} %`));
+          }
+        });
+
+        res.pipe(file);
+        file.on("finish", () => {
+          file.close(() => {
+            fs.renameSync(tmp, dest);
+            this.emit("progress", htmlDone(action));
+            resolve(dest);
+          });
+        });
+      }).on("error", err => {
+        fs.unlink(tmp, () => {});
+        reject(err);
       });
-    }
-    if (versionNative) {
-      const nativePath = path.join(root, versionNative);
-      if (!fs.existsSync(nativePath)) {
-        fs.mkdirSync(nativePath, { recursive: true });
-      }
-    }
+    });
   }
 
-  async downloadJava() {
-    this.emit("progress", "Verificando JVM...");
+  /* ── Paso 3: extracción flexible ── */
+  async extractFile (archive, dest) {
+    const action = path.basename(archive);
+    this.emit("progress", htmlProgress(`Extrayendo ${action}`));
 
-    const javaVersion = "Java17";
-    const url = this.config?.JVMDownload?.[javaVersion]?.[this.osName];
-    if (!url) {
-      throw new Error(`No hay URL de Java ${javaVersion} para ${this.osName}`);
+    if (archive.endsWith(".zip")) {
+      await fs.createReadStream(archive)
+              .pipe(unzipper.Extract({ path: dest }))
+              .promise();
+    } else {
+      await tar.x({ file: archive, cwd: dest, strip: 1 });
     }
 
-    const runtimePath = path.join(
+    /* Post‑proceso: aplanar jdk‑* si existe */
+    const sub = (await fsp.readdir(dest, { withFileTypes: true }))
+      .find(d => d.isDirectory() && /^jdk-/.test(d.name));
+    if (sub) {
+      const inner = path.join(dest, sub.name);
+      const moves = await fsp.readdir(inner);
+      await Promise.all(
+        moves.map(f => fsp.rename(
+          path.join(inner, f),
+          path.join(dest, f)
+        ))
+      );
+      await fsp.rmdir(inner);
+    }
+    this.emit("progress", htmlDone(`Extrayendo ${action}`));
+  }
+
+  /* ── Paso 4: descargar JVM una sola vez ── */
+  async ensureJVM () {
+    if (!this.downloadJVM) return;
+
+    const javaVer   = "Java17";
+    const url       = this.config?.JVMDownload?.[javaVer]?.[this.osName];
+    if (!url) throw new Error(`Sin URL de ${javaVer} para ${this.osName}`);
+
+    const runtime   = path.join(
       this.rootPath,
       this.config.DefaultPathJVM?.[this.osName] || "runtime"
     );
+    const destDir   = path.join(runtime, javaVer.toLowerCase());
+    const binCheck  = path.join(destDir, "bin", /^win/.test(this.osName) ? "java.exe" : "java");
 
-    if (!fs.existsSync(runtimePath)) {
-      fs.mkdirSync(runtimePath, { recursive: true });
-    }
+    if (fs.existsSync(binCheck)) return; // ya instalada, sin mensaje
 
-    const javaFolderPath = path.join(runtimePath, javaVersion.toLowerCase());
-    if (fs.existsSync(javaFolderPath)) {
-      this.emit("progress", `Java ya descargado en ${javaFolderPath}`);
-      return;
-    } else {
-      fs.mkdirSync(javaFolderPath, { recursive: true });
-    }
+    await fsp.mkdir(destDir, { recursive: true });
 
-    const fileName = path.basename(url.split("?")[0]);
-    const downloadDest = path.join(runtimePath, fileName);
-
-    await this.downloadFile(url, downloadDest);
-    await this.extractFile(downloadDest, javaFolderPath);
-    fs.unlinkSync(downloadDest);
-
-    this.emit("progress", `Java instalado en ${javaFolderPath}`);
+    const archive   = path.join(runtime, path.basename(url.split("?")[0]));
+    await this.downloadFile(url, archive, "JVM");
+    await this.extractFile(archive, destDir);
+    await fsp.unlink(archive);
   }
 
-  async fetchManifestData(versionId) {
-    const cacheDir = path.join(this.rootPath, "cache", "json");
-    const versionsDir = path.join(cacheDir, "versions");
-    const manifestPath = path.join(cacheDir, "version_manifest_v2.json");
-    const versionJsonPath = path.join(versionsDir, `${versionId}.json`);
+  /* ── Paso 5: descarga versión ── */
+  async fetchVersionJson (versionId) {
+    const cacheDir   = path.join(this.rootPath, "cache", "json", "versions");
+    await fsp.mkdir(cacheDir, { recursive: true });
+    const jsonPath   = path.join(cacheDir, `${versionId}.json`);
 
-    const manifestURL =
-      this.ManifestURL ||
-      "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+    if (fs.existsSync(jsonPath))
+      return JSON.parse(await fsp.readFile(jsonPath, "utf8"));
 
-    // Crear carpetas si no existen
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
+    const {versions} = await fetchJson(ManifestURL);
+    const vData      = versions.find(v => v.id === versionId);
+    if (!vData) throw new Error(`Versión ${versionId} no encontrada`);
+
+    const raw        = await fetchJson(vData.url);
+    await fsp.writeFile(jsonPath, JSON.stringify(raw, null, 2));
+    return raw;
+  }
+
+  /* ── Paso 6: helpers para paralelizar ── */
+  async parallel (items, limit, job) {
+    const q = [...items];
+    const pool = Array(Math.min(limit, q.length)).fill(null).map(async () => {
+      while (q.length) await job(q.shift());
+    });
+    await Promise.all(pool);
+  }
+
+  /* ── Paso 7: descarga librerías ── */
+  async handleLibraries (libraries) {
+    const base = path.join(this.rootPath, "libraries");
+    await this.parallel(libraries, 8, async lib => {
+      if (!lib.downloads?.artifact) return;
+      const {url, path: rel} = lib.downloads.artifact;
+      const full = path.join(base, rel);
+      await fsp.mkdir(path.dirname(full), { recursive: true });
+      if (fs.existsSync(full)) return;
+      await this.downloadFile(url, full, "Librería");
+    });
+  }
+
+  /* ── Paso 8: assets ── */
+  async handleAssets (assetIndex) {
+    const assetsDir   = path.join(this.rootPath, "assets");
+    const indexDir    = path.join(assetsDir, "indexes");
+    await fsp.mkdir(indexDir, { recursive: true });
+
+    const idxPath     = path.join(indexDir, `${assetIndex.id}.json`);
+    let data          = assetIndex;
+
+    if (!fs.existsSync(idxPath)) {
+      await fsp.writeFile(idxPath, JSON.stringify(assetIndex, null, 2));
     }
-    if (!fs.existsSync(versionsDir)) {
-      fs.mkdirSync(versionsDir, { recursive: true });
-    }
 
-    // Descargar manifest_v2.json si no existe
-    if (!fs.existsSync(manifestPath)) {
-      this.emit("progress", "Descargando manifest_v2.json...");
+    const objects = data.objects || {};
+    await this.parallel(Object.entries(objects), 16, async ([name, obj]) => {
+      const sub   = obj.hash.substring(0,2);
+      const url   = `https://resources.download.minecraft.net/${sub}/${obj.hash}`;
+      const dest  = path.join(assetsDir, "objects", sub, obj.hash);
+      await fsp.mkdir(path.dirname(dest), { recursive: true });
+      if (fs.existsSync(dest)) return;
+      await this.downloadFile(url, dest, "Asset");
+    });
+  }
 
-      await new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(manifestPath);
-        https
-          .get(manifestURL, (res) => {
-            if (res.statusCode !== 200) {
-              return reject(
-                new Error(
-                  `Error HTTP ${res.statusCode} al descargar el manifest`
-                )
-              );
-            }
+  /* ── Paso 9: client.jar & versión ── */
+  async handleClient (versionId, versionData) {
+    const vDir     = path.join(this.rootPath, "versions", versionId);
+    await fsp.mkdir(vDir, { recursive: true });
 
-            res.pipe(file);
-            file.on("finish", () => {
-              file.close();
-              this.emit("progress", "manifest_v2.json guardado en cache/json");
-              resolve();
-            });
-          })
-          .on("error", (err) => {
-            if (fs.existsSync(manifestPath)) fs.unlinkSync(manifestPath);
-            reject(err);
-          });
-      });
-    }
+    const jarPath  = path.join(vDir, `${versionId}.jar`);
+    if (!fs.existsSync(jarPath))
+      await this.downloadFile(versionData.downloads.client.url, jarPath, "Client");
 
-    // Leer y parsear el manifest
-    const manifestData = fs.readFileSync(manifestPath, "utf-8");
-    let manifest;
+    await fsp.writeFile(
+      path.join(vDir, `${versionId}.json`),
+      JSON.stringify(versionData, null, 2)
+    );
+  }
+
+  /* ── Punto de entrada ── */
+  async download (versionId) {
     try {
-      manifest = JSON.parse(manifestData);
+      this.emit("progress", htmlProgress("Inicializando", "—"));
+      await this.checkConnection();
+
+      versionId = await this.resolveVersion(versionId);
+      await this.ensureJVM();
+
+      const vData = await this.fetchVersionJson(versionId);
+      await this.handleLibraries(vData.libraries || []);
+      if (vData.assetIndex) await this.handleAssets(vData.assetIndex);
+      await this.handleClient(versionId, vData);
+
+      this.emit("done", htmlDone(`Minecraft ${versionId}`));
     } catch (e) {
-      throw new Error("No se pudo parsear manifest_v2.json");
-    }
-
-    // Buscar versión
-    const version = manifest.versions.find((v) => v.id === versionId);
-    if (!version) {
-      throw new Error(`Versión ${versionId} no encontrada en el manifest`);
-    }
-
-    // Si el archivo de versión ya existe, leerlo y devolverlo
-    if (fs.existsSync(versionJsonPath)) {
-      this.emit("progress", `${versionId}.json cargado desde cache`);
-      const cachedData = fs.readFileSync(versionJsonPath, "utf-8");
-      try {
-        return JSON.parse(cachedData);
-      } catch (err) {
-        this.emit(
-          "progress",
-          `Error al parsear el archivo cacheado ${versionId}.json, se descargará de nuevo.`
-        );
-        // En caso de error al parsear, eliminar el archivo corrupto para descargarlo de nuevo
-        fs.unlinkSync(versionJsonPath);
-      }
-    }
-
-    // Descargar y guardar archivo de versión si no existe o estaba corrupto
-    return await new Promise((resolve, reject) => {
-      https
-        .get(version.url, (res) => {
-          if (res.statusCode !== 200) {
-            return reject(
-              new Error(
-                `Error HTTP ${res.statusCode} al descargar ${versionId}.json`
-              )
-            );
-          }
-
-          let data = "";
-          res.on("data", (chunk) => (data += chunk));
-          res.on("end", () => {
-            try {
-              const versionJson = JSON.parse(data);
-
-              // Guardar en cache
-              fs.writeFileSync(versionJsonPath, data, "utf-8");
-
-              this.emit("progress", `${versionId}.json descargado y guardado`);
-              resolve(versionJson);
-            } catch (err) {
-              reject(new Error("Error al parsear el archivo de versión JSON"));
-            }
-          });
-        })
-        .on("error", (err) => {
-          reject(err);
-        });
-    });
-  }
-
-  downloadFile(url, dest) {
-    return new Promise((resolve, reject) => {
-      this.emit("progress", `Descargando archivo: ${url}`);
-      const fileStream = fs.createWriteStream(dest);
-      https
-        .get(url, (response) => {
-          if (response.statusCode !== 200) {
-            reject(
-              new Error(`Fallo en descarga: ${url} (${response.statusCode})`)
-            );
-            return;
-          }
-          response.pipe(fileStream);
-          fileStream.on("finish", () => {
-            fileStream.close(() => resolve(dest));
-          });
-        })
-        .on("error", (err) => {
-          fs.unlink(dest, () => {});
-          reject(err);
-        });
-    });
-  }
-
-  async extractFile(filePath, destFolder) {
-    this.emit("progress", `Extrayendo archivo: ${filePath}`);
-    if (filePath.endsWith(".zip")) {
-      await fs
-        .createReadStream(filePath)
-        .pipe(unzipper.Extract({ path: destFolder }))
-        .promise();
-    } else if (filePath.endsWith(".tar.gz") || filePath.endsWith(".tgz")) {
-      await tar.x({ file: filePath, cwd: destFolder, strip: 1 });
-    } else {
-      throw new Error("Tipo de archivo no soportado");
-    }
-    this.emit("progress", `Extracción completada en: ${destFolder}`);
-  }
-
-  async downloadAndExtractNatives(versionData, versionId) {
-    const platform =
-      this.osName === "windows"
-        ? "windows"
-        : this.osName === "macOs"
-        ? "osx"
-        : "linux";
-
-    const nativesDir = path.join(this.rootPath, "natives", versionId);
-    if (!fs.existsSync(nativesDir)) {
-      fs.mkdirSync(nativesDir, { recursive: true });
-      this.emit("progress", `[Nativos] Carpeta creada: ${nativesDir}`);
-    } else {
-      this.emit("progress", `[Nativos] Carpeta ya existe: ${nativesDir}`);
-    }
-
-    for (const lib of versionData.libraries) {
-      if (!lib.downloads?.classifiers || !lib.natives) continue;
-
-      const nativeKey = lib.natives[platform];
-      if (!nativeKey) continue;
-
-      const native = lib.downloads.classifiers[nativeKey];
-      if (!native || !native.url || !native.path) continue;
-
-      const zipFileName = path.basename(native.path);
-      const nativeZipPath = path.join(nativesDir, zipFileName);
-
-      if (!fs.existsSync(nativeZipPath)) {
-        this.emit("progress", `[Nativos] Descargando: ${lib.name}`);
-        try {
-          await this.downloadFile(native.url, nativeZipPath);
-          this.emit("progress", `[Nativos] Descargado: ${lib.name}`);
-        } catch (err) {
-          this.emit(
-            "error",
-            `[Nativos] Error al descargar ${lib.name}: ${err.message}`
-          );
-          continue;
-        }
-      } else {
-        this.emit("progress", `[Nativos] Ya descargado: ${lib.name}`);
-      }
-
-      try {
-        const zipStream = fs
-          .createReadStream(nativeZipPath)
-          .pipe(unzipper.Parse({ forceStream: true }));
-
-        for await (const entry of zipStream) {
-          if (!entry.path.includes("META-INF")) {
-            const fullPath = path.join(nativesDir, entry.path);
-            await fs.promises.mkdir(path.dirname(fullPath), {
-              recursive: true,
-            });
-
-            await new Promise((resolve, reject) => {
-              const writeStream = fs.createWriteStream(fullPath);
-              entry.pipe(writeStream);
-              writeStream.on("finish", resolve);
-              writeStream.on("error", reject);
-            });
-          } else {
-            entry.autodrain();
-          }
-        }
-        this.emit("progress", `[Nativos] Extraído: ${lib.name}`);
-      } catch (err) {
-        this.emit(
-          "error",
-          `[Nativos] Error al extraer ${lib.name}: ${err.message}`
-        );
-      }
-    }
-  }
-
-  async downloadLibraries(versionData) {
-    const librariesFolder = path.join(this.rootPath, "libraries");
-
-    // Cargar config.json y extraer ExtraLibreries
-    const configPath = path.join(this.rootPath, "config.json");
-    if (fs.existsSync(configPath)) {
-      try {
-        const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-        if (Array.isArray(config.ExtraLibreries)) {
-          const extraLibs = config.ExtraLibreries.map((url) => {
-            const urlPath = new URL(url).pathname.replace(/^\/+/, "");
-            return {
-              name: path.basename(url), // solo el archivo, para mostrar
-              downloads: {
-                artifact: {
-                  url,
-                  path: urlPath,
-                },
-              },
-            };
-          });
-          versionData.libraries = [
-            ...(versionData.libraries || []),
-            ...extraLibs,
-          ];
-        }
-      } catch (err) {
-        this.emit("error", `Error al leer config.json: ${err.message}`);
-      }
-    }
-
-    // Continuar descarga como antes
-    for (const lib of versionData.libraries) {
-      if (!lib.downloads || !lib.downloads.artifact) continue;
-
-      const { url, path: libPath } = lib.downloads.artifact;
-      const fullPath = path.join(librariesFolder, libPath);
-      const dir = path.dirname(fullPath);
-
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      if (!fs.existsSync(fullPath)) {
-        this.emit("progress", `[Librería] Descargando: ${lib.name}`);
-        try {
-          await this.downloadFile(url, fullPath);
-          this.emit("progress", `[Librería] Descargado: ${lib.name}`);
-        } catch (err) {
-          this.emit("error", `Error al descargar ${lib.name}: ${err.message}`);
-        }
-      } else {
-        this.emit("progress", `[Librería] Ya existe: ${lib.name}`);
-      }
-    }
-  }
-
-  async downloadAssets(versionData) {
-    const assetsFolder = path.join(this.rootPath, "assets");
-    const indexesFolder = path.join(assetsFolder, "indexes");
-
-    // Descargar y guardar el assetIndex JSON
-    const assetIndexURL = versionData.assetIndex.url;
-    const assetIndexId = versionData.assetIndex.id;
-    const assetIndexPath = path.join(indexesFolder, `${assetIndexId}.json`);
-
-    // Crear carpeta indexes si no existe
-    if (!fs.existsSync(indexesFolder)) {
-      fs.mkdirSync(indexesFolder, { recursive: true });
-    }
-
-    // Función que descarga JSON con https y devuelve objeto JS
-    function downloadJson(url) {
-      return new Promise((resolve, reject) => {
-        https
-          .get(url, (res) => {
-            if (res.statusCode !== 200) {
-              reject(new Error(`HTTP error ${res.statusCode}`));
-              return;
-            }
-            let data = "";
-            res.on("data", (chunk) => {
-              data += chunk;
-            });
-            res.on("end", () => {
-              try {
-                const json = JSON.parse(data);
-                resolve(json);
-              } catch (err) {
-                reject(err);
-              }
-            });
-          })
-          .on("error", reject);
-      });
-    }
-
-    let assetIndexData;
-    try {
-      assetIndexData = await downloadJson(assetIndexURL);
-
-      // Guardar el assetIndex JSON localmente
-      fs.writeFileSync(
-        assetIndexPath,
-        JSON.stringify(assetIndexData, null, 2),
-        "utf-8"
-      );
-      this.emit(
-        "progress",
-        `[Assets] assetIndex guardado en indexes/${assetIndexId}.json`
-      );
-    } catch (error) {
-      this.emit(
-        "error",
-        `[Assets] Error al obtener o guardar asset index: ${error.message}`
-      );
-      return;
-    }
-
-    // Función para descargar archivos según hash (la tuya, que usa this.downloadFile)
-    const downloadFromHashList = async (folder, hashList, label) => {
-      for (const [name, data] of Object.entries(hashList)) {
-        const hash = data.hash;
-        const subDir = hash.substring(0, 2);
-        const fileUrl = `https://resources.download.minecraft.net/${subDir}/${hash}`;
-        const filePath = path.join(assetsFolder, folder, subDir, hash);
-
-        const fileDir = path.dirname(filePath);
-        if (!fs.existsSync(fileDir)) {
-          fs.mkdirSync(fileDir, { recursive: true });
-        }
-
-        if (!fs.existsSync(filePath)) {
-          this.emit("progress", `[Assets] Descargando ${label}: ${name}`);
-          try {
-            await this.downloadFile(fileUrl, filePath);
-            this.emit("progress", `[Assets] ${label} descargado: ${name}`);
-          } catch (err) {
-            this.emit(
-              "error",
-              `[Assets] Error al descargar ${label} ${name}: ${err.message}`
-            );
-          }
-        } else {
-          this.emit("progress", `[Assets] ${label} ya existe: ${name}`);
-        }
-      }
-    };
-
-    // Descargar solo assets (objects)
-    if (assetIndexData.objects) {
-      await downloadFromHashList("objects", assetIndexData.objects, "asset");
-    }
-
-    this.emit("progress", "[Assets] ✅ Descarga de assets completada.");
-  }
-
-  async downloadClientAndSaveJson(versionData, versionId) {
-    // Descargar client.jar
-    const clientInfo = versionData.downloads.client;
-    if (!clientInfo || !clientInfo.url) {
-      throw new Error("No se encontró el client.jar para esta versión.");
-    }
-
-    const versionDir = path.join(this.rootPath, "versions", versionId);
-    const clientJarPath = path.join(versionDir, `${versionId}.jar`);
-    const versionJsonPath = path.join(versionDir, `${versionId}.json`);
-
-    if (!fs.existsSync(versionDir)) {
-      fs.mkdirSync(versionDir, { recursive: true });
-    }
-
-    if (!fs.existsSync(clientJarPath)) {
-      this.emit("progress", `Descargando client.jar para ${versionId}...`);
-      try {
-        await this.downloadFile(clientInfo.url, clientJarPath);
-        this.emit("progress", `client.jar descargado en: ${clientJarPath}`);
-      } catch (err) {
-        this.emit("error", `Error al descargar client.jar: ${err.message}`);
-      }
-    } else {
-      this.emit("progress", `client.jar ya existe en: ${clientJarPath}`);
-    }
-
-    // Guardar JSON de versión
-    try {
-      fs.writeFileSync(versionJsonPath, JSON.stringify(versionData, null, 2));
-      this.emit("progress", `Guardado JSON de versión en: ${versionJsonPath}`);
-    } catch (err) {
-      this.emit(
-        "error",
-        `Error al guardar el .json de versión: ${err.message}`
-      );
+      this.emit("error", e.message);
     }
   }
 }

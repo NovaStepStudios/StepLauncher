@@ -1,10 +1,11 @@
 {
   "name": "steplauncher",
   "version": "1.0.0",
-  "description": "Launcher For Minecraft!",
+  "description": "El Mejor Launcher de Minecraft No Premium",
   "main": "src/app.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder"
   },
   "repository": {
     "type": "git",
@@ -32,14 +33,43 @@
   },
   "homepage": "https://github.com/NovaStepStudios/StepLauncher#readme",
   "devDependencies": {
-    "adm-zip": "^0.5.16",
     "electron": "^36.4.0",
-    "minecraft-launcher-core": "^3.18.2",
-    "node-fecth": "^0.0.1-security"
+    "electron-builder": "^26.0.12"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
+    "minecraft-launcher-core": "^3.18.2",
     "discord-rpc": "^4.0.1",
     "tar": "^7.4.3",
+    "node-fecth": "^0.0.1-security",
     "unzipper": "^0.12.3"
+  },
+  "build": {
+    "appId": "stepnicka.steplauncher",
+    "productName": "StepLauncher",
+    "directories": {
+      "output": "Release"
+    },
+    "artifactName": "${platform}/${productName}-${version}.${ext}",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "linux":{
+      "icon": "./icons/linux.png",
+      "target": "appimage",
+      "category": "game"
+    },
+    "win": {
+      "icon":"./icons/win.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

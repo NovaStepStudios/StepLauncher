@@ -14,8 +14,14 @@ let configApplied = {}; // Config cargada y aplicada
 let configPending = {}; // Cambios pendientes a aplicar
 let engine = null;
 
-function persist() {
+function persist(mostrarNotificacion = false) {
   window.electronAPI?.saveConfig(configApplied);
+  if (mostrarNotificacion) {
+    showNotification({
+      type: "accepted",
+      text: "Configuración guardada con éxito.",
+    });
+  }
 }
 
 const canvas = document.getElementById("skin_container");
@@ -200,22 +206,22 @@ function bindControls() {
 
   on($("btn-apply-config"), "click", applyPendingChanges);
 }
-
 function applyPendingChanges() {
-  if (!Object.keys(configPending).length) return;
+  if (!Object.keys(configPending).length) {
+    showNotification({
+      type: "warning",
+      text: "No hay cambios pendientes para aplicar.",
+    });
+    return;
+  }
 
-  Object.entries(configPending).forEach(([k, v]) =>
-    deepSet(configApplied, k, v)
+  Object.entries(configPending).forEach(([path, value]) =>
+    deepSet(configApplied, path, value)
   );
   configPending = {};
-  persist();
+  persist(true); // Persistir y mostrar notificación
 
-  console.log("⚙️ Config aplicada:", configApplied);
-  showNotification({
-    type: "accepted",
-    text: "Configuracion guardada"
-  })
-  const disable3D = deepGet(configApplied, "launcher.desactivarModelos3D");
+  const disable3D = deepGet(configApplied, "launcher.disable3DModels");
 
   if (disable3D) {
     disableAllCanvas();
@@ -277,15 +283,15 @@ function bindPanels() {
 }
 
 function applyBgCustom(path) {
-  if (!path) {
+  if (!path || typeof path !== "string" || !path.startsWith("file://")) {
     document.documentElement.style.removeProperty("--bg-custom-user");
     return;
   }
 
-  const url = `file://${encodeURI(path)}`;
-  const cssValue = `linear-gradient(-45deg, rgba(0,0,0,0.8) 10%, transparent 90%), url("${url}")`;
+  const cssValue = `linear-gradient(-45deg, rgba(0,0,0,0.8) 10%, transparent 90%), url("${path}")`;
   document.documentElement.style.setProperty("--bg-custom-user", cssValue);
 }
+
 
 const btnUploadBg = document.getElementById("btn-upload-bg");
 

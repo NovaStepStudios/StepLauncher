@@ -42,7 +42,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const META = {
     SettingsItem: { title: "Opciones", src: "./layouts/config.html" },
-    InstancieItem: { title: "Instancias", src: "./layouts/instancias.html" },
     DownloadItem: { title: "Descargar", src: "./layouts/downloads.html" },
     PlayItem: { title: "Jugar", src: "./layouts/play.html" },
   };

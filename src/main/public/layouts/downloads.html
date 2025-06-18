@@ -7,11 +7,11 @@
       <!-- TIPO DE VERSIÓN -->
       <div class="TypeRow" id="typeRow">
         <div class="type-btn selected" data-type="vanilla">Vanilla</div>
-        <div class="type-btn" data-type="fabric">Fabric</div>
-        <div class="type-btn" data-type="forge">Forge</div>
-        <div class="type-btn" data-type="optifine">OptiFine</div>
-        <div class="type-btn" data-type="neoforge">NeoForge</div>
-        <div class="type-btn" data-type="legacyfabric">LegacyFabric</div>
+        <div class="type-btn" style="opacity: 0.5; pointer-events:none;"data-type="fabric">Fabric</div>
+        <div class="type-btn" style="opacity: 0.5; pointer-events:none;"data-type="forge">Forge</div>
+        <div class="type-btn" style="opacity: 0.5; pointer-events:none;"data-type="optifine">OptiFine</div>
+        <div class="type-btn" style="opacity: 0.5; pointer-events:none;"data-type="neoforge">NeoForge</div>
+        <div class="type-btn" style="opacity: 0.5; pointer-events:none;"data-type="legacyfabric">LegacyFabric</div>
     </div>
     <hr>
     <!-- VANILLA -->
@@ -51,15 +51,10 @@
         <select id="legacyfabric-select">
         </select>
     </div>
-
-    <div class="note">
-        Seleccioná el tipo de versión y su variante antes de descargar. Las versiones modificadas son creadas por la comunidad.
     </div>
-    </div>
+    <button class="DownloadBtn" style="height: 3rem;">Descargar versión</button>
     <div id="DebugConsoleDownload" style="display: none;">
     </div>
-
-    <button class="DownloadBtn" style="height: 3rem;">Descargar versión</button>
     </div>
 </div>
 <script type="module" src="../render/js/layouts/download.js"></script>

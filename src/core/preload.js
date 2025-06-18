@@ -106,6 +106,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
       console.error("Error guardando configuración:", err);
     }
   },
+  gameMode: () =>
+    ipcRenderer.send("GameMode"),
+
   onMinecraftDebug: (callback) =>
     ipcRenderer.on("minecraft-debug", (_, msg) => callback(msg)),
 

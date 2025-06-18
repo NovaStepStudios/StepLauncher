@@ -154,7 +154,7 @@ hr{
 }
 
 .TittleBar .window-controls button:hover {
-    background-color: color-mix(in srgb, 20% var(--bg-tittlebar-principal), 50% black);
+    background-color: black;
 }
 @keyframes Pulse{
     0%{

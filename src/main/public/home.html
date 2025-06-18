@@ -57,6 +57,12 @@
                     <h3>Jugar</h3>
                     <span class="material-icons">sports_esports</span>
                 </div>
+                <div class="DownloadProgress" id="DownloadProgressElement" style="display: none;">
+                    <span class="loader"></span>
+                    <img src="../assets/img/minecraft.png" alt="MC">
+                    <h4 id="TextDownload"></h4>
+                    <span class="material-icons" id="downloadIcon">download</span>
+                </div>
                 <div class="Account">
                     <canvas id="HeadModel"></canvas>
                     <h2 id="Username">StepnickaSantiago</h2>
@@ -76,7 +82,6 @@
             <h4 id="TextNotification"></h4>
         </div>
     </div>
-    <script type="module" src="../render/js/global/Account.js">
     </script>
     <script src="../render/js/home.js" type="module"></script>
     <script>
@@ -84,33 +89,22 @@
             maximizeBtn  = document.getElementById("maximize-btn"),
             maximizeIcon = document.getElementById("maximize-icon"),
             closeBtn = document.getElementById("close-btn");
-
-        // Minimizar
         minimizeBtn.addEventListener("click", () =>
             window.windowControls.minimize()
         );
-
-        // Maximizar ↔ Restaurar
         maximizeBtn.addEventListener("click", () => {
             window.windowControls.toggleMaximize();
-            window.windowControls.requestMaximizedState(); // refrescar icono
+            window.windowControls.requestMaximizedState();
         });
-
-        // Cerrar
         closeBtn.addEventListener("click", () =>
             window.windowControls.close()
         );
-
-        // Cambiar icono cuando cambie el estado
         window.windowControls.onMaximizedState(isMaximized => {
             maximizeIcon.textContent = isMaximized
-            ? "check_box_outline_blank"            // restaurar
-            : "filter_none"; // maximizar
+            ? "check_box_outline_blank"
+            : "filter_none";
         });
-
-        // Consultar estado al arrancar
         window.windowControls.requestMaximizedState();
-
     </script>
 </body>
 </html>

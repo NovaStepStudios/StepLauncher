@@ -11,7 +11,16 @@
     height: 100dvh;
     z-index: 1;
 }
-
+@keyframes FadeInDownloadElement{
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(2rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
 .SideBar{
     position: fixed;
     left: 0;
@@ -26,6 +35,63 @@
     display: flex;  
     flex-direction: column;
     gap: 0.5rem;
+    .DownloadProgress{
+        position: absolute;
+        bottom: 5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        height: 3rem;
+        border-radius: 0.5rem;
+        background-color: #40ff9c;
+        border: 0.1rem solid black;
+        padding: 0.2rem;
+        filter: drop-shadow(0 0 0.5em #40ff9c);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        overflow: hidden;
+        opacity: 1 !important;
+        z-index: 50;
+        animation: FadeInDownloadElement 0.5s ease-in-out forwards; 
+        img{
+            position: absolute;
+            top: -7rem;
+            left: -50%;
+            z-index: -1;
+            mask-image: linear-gradient(90deg,black 50%,transparent 90%);
+            scale: 1.01;
+        }
+        #downloadIcon {
+            margin: auto;
+            color: white;
+            font-size: 2rem;
+            z-index: 1;
+            text-align: center;
+        }
+        h4{
+            font-size: 1rem;
+            font-family: "Fredoka", Arial, Helvetica, sans-serif;
+            color:white;
+            margin:auto;
+            width: 9rem;
+            height: 3rem;
+        }
+        .loader {
+            position: absolute;
+            top: -5em;
+            right: -5em;
+            width: 10rem;
+            height: 10rem;
+            border: 1.5rem solid var(--items-color-secundary);
+            border-bottom-color: var(--items-color-principal);
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 0.8s ease-in-out infinite;
+            z-index: -1;
+        }
+    }
     .Account{
         position: absolute;
         bottom: 0.5rem;

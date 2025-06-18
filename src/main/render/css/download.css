@@ -1,10 +1,12 @@
 :root {
-    --gap-xl: 1.5rem;
+    --gap-xl: 0.5rem;
     --gap-lg: 1rem;
     --gap-md: 0.75rem;
     --gap-sm: 0.5rem;
     --gap-xs: 0.375rem;
-
+    --color-accent: #22c55e;
+    --color-error : #ef4444;
+    --font-ui     : Inter, system-ui, sans-serif;
     --font-xl: 1.8rem;
     --font-lg: 1.15rem;
     --font-md: 1rem;
@@ -30,16 +32,17 @@
 .Card {
     flex: 1;
     max-width: 90%;
-    margin-top: 4rem;
-    height: 100%;
+    margin-top: 5rem;
+    height: auto;
+    min-height: 100%;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(#181818f0 60%, transparent);
+    background: linear-gradient(#181818f0 50%, transparent 80%);
     border-radius: 0.75rem;
-    padding: var(--gap-xl);
-    box-shadow: 0 0 2rem #000a;
+    padding: 1rem 0.5rem;
+    box-shadow: 0 -0rem 10rem #000a;
     gap: var(--gap-lg);
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .Card h2 {
@@ -148,48 +151,20 @@ select:hover {
     font-size: var(--font-md);
     font-weight: 600;
     cursor: pointer;
-    transition: 0.2s;
+    transition: all .1s ease-in-out;
 }
-
 .DownloadBtn:hover {
     background: #35e68c;
 }
-#DebugConsoleDownload {
-    width: 90%;
-    height: 60dvh;
-    margin: 2rem auto;
-    margin-bottom: 3rem;
-    padding: 1rem;
-    border-radius: 0.75rem;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 0 10px #000c;
-    overflow-y: auto;
-    color: #fff;
-    font-family: 'Fira Code', Arial, Helvetica, sans-serif, monospace;
-    font-size: 0.9rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    scrollbar-width: thin;
-    scrollbar-color: #888 #222;
+.DownloadBtn:active {
+    background: #2ac67c;
+    scale: 0.98;
 }
 
-/* Scrollbar (para navegadores Chromium) */
-#DebugConsoleDownload::-webkit-scrollbar {
-    width: 8px;
-}
-
-#DebugConsoleDownload::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-#DebugConsoleDownload::-webkit-scrollbar-track {
-    background: transparent;
-}
 .DownloadBtn.Disabled {
     position: absolute;
-    top: 6.5rem;
-    right: 6rem;
+    bottom: 2.5rem;
+    right: 3rem;
     padding: 0.75rem 2rem;
     font-size: 1rem;
     border-radius: 0.5rem;
@@ -205,9 +180,9 @@ select:hover {
     align-items: center;
     gap: 0.5rem;
     .loader {
-        width: 1.5rem;
-        height: 1.5rem;
-        border: 0.5rem solid var(--items-color-secundary);
+        width: 1rem;
+        height: 1rem;
+        border: 0.3rem solid var(--items-color-secundary);
         border-bottom-color: var(--items-color-principal);
         border-radius: 50%;
         display: inline-block;
@@ -223,4 +198,117 @@ select:hover {
     100% {
         transform: rotate(360deg);
     }
+}
+/* ════════════════  CONSOLE GAMER STYLE  ════════════════ */
+#DebugConsoleDownload {
+  width: 92%;
+  height: 60dvh;
+  margin: 2rem auto 3rem;
+  padding: 1.75rem;
+  border-radius: 1rem;
+  background:
+      linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,.75)),
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,0.04) 0px,
+        rgba(255,255,255,0.04) 2px,
+        transparent 2px,
+        transparent 6px
+      ),
+      #111;                      /* textura leve tipo fibra de carbono */
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: 0 0 25px rgba(0, 255, 150, 0.25),
+              0 0 8px rgba(0, 0, 0, 0.8) inset;
+  color: #cfcfcf;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  border: 1px solid rgba(0, 255, 150, 0.25);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #0acb8d #0a1f16;
+}
+
+/* entrada (p / .download-msg) */
+#DebugConsoleDownload p,
+#DebugConsoleDownload .download-msg {
+  margin-bottom: .45rem;
+  animation: slide-fade 0.35s ease forwards;
+  transform-origin: left;
+}
+
+@keyframes slide-fade {
+  from { opacity: 0; transform: translateX(-6px) scale(.98); }
+  to   { opacity: 1; transform: translateX(0)     scale(1); }
+}
+
+/* texto + loader alineados */
+#DebugConsoleDownload .download-msg {
+  font-size: 1.18rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+/* ═════ loader “onda de luz” ═════ */
+.loader,
+.loader::before,
+.loader::after {
+  content: "";
+  display: inline-block;
+  width: .5em;
+  height: .5em;
+  border-radius: 50%;
+  background: currentColor;
+  animation: wave 1.4s infinite ease-in-out both;
+}
+
+.loader {
+  color: #18ff9c;          /* verde esmeralda */
+  position: relative;
+  margin-left: 1rem;
+}
+
+.loader::before { 
+  position: absolute; left: -.75em; 
+  animation-delay: -.28s;
+}
+.loader::after  { 
+  position: absolute; left:  .75em; 
+  animation-delay: -.14s;
+}
+
+@keyframes wave {
+  0%, 80%, 100% { transform: scale(0); opacity: .4; }
+  40%          { transform: scale(1); opacity: 1; }
+}
+
+/* ═════ estados ═════ */
+.success { color: #18ff9c; }
+.error   { color: #ff4b4b; }
+
+/* ═════ Scrollbar chromium ═════ */
+#DebugConsoleDownload::-webkit-scrollbar  { width: 10px; }
+#DebugConsoleDownload::-webkit-scrollbar-track {
+  background: #0a1f16;
+  border-radius: 5px;
+}
+#DebugConsoleDownload::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+      120deg,
+      #18ff9c 0%, #0acb8d 30%, #08966d 100%
+  );
+  border-radius: 5px;
+}
+
+/* ═════ cabecera sutil (opcional) ═════ */
+#DebugConsoleDownload::before {
+  content: "LOG";
+  position: absolute;
+  top: 6px; left: 14px;
+  font-size: .75rem;
+  letter-spacing: .12em;
+  color: rgba(0,255,150,.6);
+  opacity: .6;
 }

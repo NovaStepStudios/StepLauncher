@@ -1,182 +1,235 @@
-import { getVersions } from "../minecraft.js";
+/* ----------  Imports ---------- */
+import { getVersions }      from "../minecraft.js";
+import { loadVersions }     from "./play.js";
+import { showNotification } from "../global/Notification.js";
 
-/* ----------  Referencias / estado ---------- */
-const typeBtns = document.querySelectorAll(".type-btn");
-const settings = document.querySelectorAll(".Settings");
-document.querySelector(".DownloadBtn").addEventListener("click", startDownload);
-const vanillaRadios = document.querySelectorAll(
-  'input[name="vanilla-channel"]'
-);
-const loaded = {}; // cache: { channel: true }
-let selectedType = "vanilla";
+/* ----------  Referencias / estado UI ---------- */
+const typeBtns      = document.querySelectorAll(".type-btn");
+const vanillaRadios = document.querySelectorAll('input[name="vanilla-channel"]');
+const settings      = document.querySelectorAll(".Settings");
+const selectVanilla = document.getElementById("vanilla-select");
 
-/* ----------  Helpers ---------- */
-async function fillSelect(select, versions) {
+const progressWrap  = document.getElementById("DownloadProgressElement");
+const debugConsole  = document.getElementById("DebugConsoleDownload");
+const elementText   = document.getElementById("TextDownload");
+const downloadBtn   = document.querySelector(".DownloadBtn");
+downloadBtn.addEventListener("click", startDownload);
+
+const loadedCache   = {};          // versiones ya cargadas → { channel|type : true }
+const logEntries    = new Map();   // acción → elemento <div>
+
+let selectedType    = "vanilla";   // pestaña activa
+let isDownloading   = false;
+let currentDownloadVersion = null;
+
+/* ────────────────────────────────────────────────────────────────
+   UTILIDADES
+   ──────────────────────────────────────────────────────────────── */
+async function fillSelect (select, versions) {
   select.innerHTML = "";
-  versions.forEach((v) => {
+  versions.forEach(v => {
     const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
+    opt.value = opt.textContent = v;
     select.appendChild(opt);
   });
 }
 
-async function updateVanillaSelect(channel) {
-  const select = document.getElementById("vanilla-select");
-  select.innerHTML = "<option>Cargando...</option>";
+/* ----------  Cargar versiones vanilla por canal ---------- */
+async function updateVanillaSelect (channel) {
+  if (loadedCache[channel]) return;
+
+  selectVanilla.innerHTML = "<option>Cargando…</option>";
   try {
     const versions = await getVersions(channel);
-    await fillSelect(select, versions);
-  } catch (err) {
-    console.error("[updateVanillaSelect]", err);
-    select.innerHTML = "<option>Error al cargar</option>";
+    await fillSelect(selectVanilla, versions);
+    loadedCache[channel] = true;
+  } catch (e) {
+    console.error("[updateVanillaSelect]", e);
+    selectVanilla.innerHTML = "<option>Error</option>";
   }
 }
 
-async function updateSelectFor(channel) {
-  const select = document.querySelector(`#settings-${channel} select`);
-  if (!select || loaded[channel]) return;
+/* ----------  Cargar versiones de otros tipos (forge, fabric…) ---------- */
+async function updateSelectFor (type) {
+  const select = document.querySelector(`#settings-${type} select`);
+  if (!select || loadedCache[type]) return;
 
-  select.innerHTML = "<option>Cargando...</option>";
+  select.innerHTML = "<option>Cargando…</option>";
   try {
-    const versions = await getVersions(channel);
+    const versions = await getVersions(type);
     await fillSelect(select, versions);
-    loaded[channel] = true;
-  } catch (err) {
-    console.error(`[updateSelectFor] Error cargando ${channel}:`, err);
-    select.innerHTML = "<option>Error al cargar</option>";
+    loadedCache[type] = true;
+  } catch (e) {
+    console.error(`[updateSelectFor] ${type}`, e);
+    select.innerHTML = "<option>Error</option>";
   }
 }
 
-/* ----------  Eventos UI ---------- */
-vanillaRadios.forEach((radio) => {
-  radio.addEventListener("change", (e) => {
-    if (selectedType === "vanilla") updateVanillaSelect(e.target.value);
-  });
-});
+/* ────────────────────────────────────────────────────────────────
+   HANDLERS DE UI
+   ──────────────────────────────────────────────────────────────── */
+/* cambio de radio (release ↔ snapshot en vanilla) */
+vanillaRadios.forEach(radio =>
+  radio.addEventListener("change", e =>
+    selectedType === "vanilla" && updateVanillaSelect(e.target.value))
+);
 
-typeBtns.forEach((btn) => {
+/* cambio de pestaña (vanilla / forge / fabric…) */
+typeBtns.forEach(btn =>
   btn.addEventListener("click", async () => {
-    typeBtns.forEach((b) => b.classList.remove("selected"));
+    typeBtns.forEach(b => b.classList.remove("selected"));
     btn.classList.add("selected");
     selectedType = btn.dataset.type;
 
-    settings.forEach((s) => s.classList.remove("active"));
-    const activePanel = document.getElementById(`settings-${selectedType}`);
-    if (activePanel) activePanel.classList.add("active");
+    settings.forEach(s => s.classList.remove("active"));
+    document.getElementById(`settings-${selectedType}`)?.classList.add("active");
 
     if (selectedType === "vanilla") {
-      const channel = document.querySelector(
-        'input[name="vanilla-channel"]:checked'
-      ).value;
+      const channel = document.querySelector('input[name="vanilla-channel"]:checked').value;
       await updateVanillaSelect(channel);
     } else {
       await updateSelectFor(selectedType);
     }
-  });
-});
+  })
+);
 
-/* ----------  Inicialización ---------- */
-updateVanillaSelect("release");
+/* ────────────────────────────────────────────────────────────────
+   DESCARGA
+   ──────────────────────────────────────────────────────────────── */
+function startDownload () {
+  if (isDownloading) return;
 
-/* ----------  Descargar ---------- */
-function startDownload() {
-  const downloadBtn = document.querySelector(".DownloadBtn");
-  const selectVersions = document.getElementById("SelectVersions");
-  const debugConsole = document.getElementById("DebugConsoleDownload");
-
-  const opts = { type: selectedType };
+  const opts   = { type: selectedType };
   const select = document.querySelector(`#settings-${selectedType} select`);
   if (select) opts.version = select.value;
 
-  if (selectedType === "vanilla") {
-    const channel = document.querySelector(
-      'input[name="vanilla-channel"]:checked'
-    );
-    opts.channel = channel?.value ?? "release";
+  if (selectedType === "vanilla")
+    opts.channel = document.querySelector('input[name="vanilla-channel"]:checked')?.value ?? "release";
+
+  if (!opts.version) {
+    showNotification({ type: "error", text: "Selecciona una versión" });
+    return;
   }
 
-  downloadBtn.disabled = true;
-  let countdown = 5;
+  isDownloading          = true;
+  currentDownloadVersion = opts.version;
+  elementText.textContent = `Descargando Minecraft: ${currentDownloadVersion}`;
+  downloadBtn.disabled   = true;
 
-  const countdownInterval = setInterval(() => {
-    downloadBtn.textContent = `Comenzando en ${countdown}...`;
-
-    if (countdown === 3) {
+  /* cuenta regresiva */
+  let cd = 5;
+  const int = setInterval(() => {
+    downloadBtn.textContent = `Comenzando en ${cd}…`;
+    if (cd === 3) {            // mostrar consola
       downloadBtn.classList.add("Disabled");
-      if (selectVersions) selectVersions.remove();
-      if (debugConsole) debugConsole.style.display = "block";
+      toggleDownloadUI(true);
       setupDownloadListeners();
     }
-
-    if (countdown === 0) {
-      clearInterval(countdownInterval);
-      downloadBtn.innerHTML=`<p>Descargando...</p> <span class="loader"></span>`
+    if (cd === 0) {
+      clearInterval(int);
+      downloadBtn.innerHTML = `<p>Descargando…</p><span class="loader"></span>`;
       window.electronAPI.downloadMinecraft(opts);
     }
-
-    countdown--;
+    cd--;
   }, 1000);
 }
 
-/* ----------  Debug Consola + Logs ---------- */
-function setupDownloadListeners() {
-  const debugConsole = document.getElementById("DebugConsoleDownload");
-  const downloadBtn = document.querySelector(".DownloadBtn");
-  const closeBtn = document.querySelector(".close-btn");
+/* ────────────────────────────────────────────────────────────────
+   LOG DE PROGRESO
+   ──────────────────────────────────────────────────────────────── */
+function updateLog(msg, isError = false) {
+  const actionMatch = msg.match(/^\[([^\]]+)]/);
+  const isHtml = msg.includes("<span");
 
-  debugConsole.innerHTML = ""; // Limpiar consola
-
-  // Desactivar el botón de cerrar
-  if (closeBtn) closeBtn.disabled = true;
-
-  // Eventos del backend
-  window.electronAPI.onProgress((msg) => {
-    appendDebug(msg);
-  });
-
-  window.electronAPI.onError((err) => {
-    appendDebug(`ERROR: ${err}`, true);
-
-    // Reactivar controles
-    if (closeBtn) closeBtn.disabled = false;
-    if (downloadBtn) {
-      downloadBtn.disabled = false;
-      downloadBtn.textContent = "Descargar versión";
-      downloadBtn.classList.remove("Disabled");
+  if (actionMatch) {
+    const action = actionMatch[1];
+    let entry = logEntries.get(action);
+    if (!entry) {
+      entry = document.createElement("div");
+      entry.className = "download-msg";
+      debugConsole.appendChild(entry);
+      logEntries.set(action, entry);
     }
-  });
+    entry.innerHTML = msg;
 
-  window.electronAPI.onDone((msg) => {
-    appendDebug(`COMPLETADO: ${msg}`);
-
-    // Reactivar controles
-    if (closeBtn) closeBtn.disabled = false;
-    if (downloadBtn) {
-      downloadBtn.disabled = false;
-      downloadBtn.textContent = "Descargar versión";
-      downloadBtn.classList.remove("Disabled");
+    if (msg.includes("¡Se ha descargado con éxito!")) {
+      entry.classList.add("success");
+      entry.querySelector(".loader")?.remove();
+      logEntries.delete(action);
     }
-  });
-}
+  } else {
+    // 👉 Eliminar último <p> (si existe y es suelto)
+    const last = debugConsole.lastElementChild;
+    if (last && last.tagName === "P") {
+      debugConsole.removeChild(last);
+    }
 
-function appendDebug(text, isError = false) {
-  const debugConsole = document.getElementById("DebugConsoleDownload");
-  const p = document.createElement("p");
-  p.textContent = text;
-
-  if (isError) p.style.color = "red";
-
-  debugConsole.appendChild(p);
-
-  // Limitar a los últimos 100 logs
-  const maxLogs = 10;
-  while (debugConsole.children.length > maxLogs) {
-    debugConsole.removeChild(debugConsole.firstChild);
+    // 👉 Agregar nueva línea suelta
+    const p = document.createElement("p");
+    p[isHtml ? "innerHTML" : "textContent"] = msg;
+    if (isError) p.style.color = "red";
+    debugConsole.appendChild(p);
   }
 
-  debugConsole.scrollTop = debugConsole.scrollHeight;
+  // Limitar a 20 elementos
+  while (debugConsole.children.length > 20)
+    debugConsole.removeChild(debugConsole.firstChild);
 
-  const prefix = "[DebugConsole]";
-  isError ? console.error(prefix, text) : console.log(prefix, text);
+  debugConsole.scrollTop = debugConsole.scrollHeight;
 }
+
+
+/* ────────────────────────────────────────────────────────────────
+   IPC LISTENERS
+   ──────────────────────────────────────────────────────────────── */
+function setupDownloadListeners () {
+  debugConsole.innerHTML = "";
+  logEntries.clear();
+
+  window.electronAPI.onProgress(m => updateLog(m));
+  window.electronAPI.onError(e   => {
+    updateLog(`❌ ERROR: ${e}`, true);
+    restoreControls();
+  });
+  window.electronAPI.onDone(m    => {
+    updateLog(`✅ COMPLETADO: ${m}`);
+    if (m.includes(currentDownloadVersion)) {
+      showNotification({ type: "accepted", text: `Descarga completada: ${currentDownloadVersion}` });
+      loadVersions();
+      restoreControls();
+      elementText.textContent = `Descarga Completada: ${currentDownloadVersion}`;
+    }
+  });
+}
+
+function removeDownloadListeners () {
+  window.electronAPI.removeAllListeners("onProgress");
+  window.electronAPI.removeAllListeners("onError");
+  window.electronAPI.removeAllListeners("onDone");
+}
+
+/* ────────────────────────────────────────────────────────────────
+   UI helpers
+   ──────────────────────────────────────────────────────────────── */
+function restoreControls () {
+  downloadBtn.disabled = false;
+  downloadBtn.textContent = "Descargar versión";
+  downloadBtn.classList.remove("Disabled");
+  toggleDownloadUI(false);
+  isDownloading = false;
+  currentDownloadVersion = null;
+  removeDownloadListeners();
+}
+
+function toggleDownloadUI (show) {
+  document.getElementById("SelectVersions")?.style.setProperty("display", show ? "none" : "block");
+  progressWrap.style.display = show ? "flex" : "none";
+  debugConsole.style.display = show ? "block" : "none";
+}
+
+/* ────────────────────────────────────────────────────────────────
+   INICIALIZACIÓN
+   ──────────────────────────────────────────────────────────────── */
+(async () => {
+  await updateVanillaSelect("release");   // carga inicial
+})();
