@@ -1,5 +1,16 @@
 # StepLauncher
 
+## Links
+[StepLauncher](https://steplauncher.web.app)
+
+[Discord](https://discord.gg/YAqpTWQByM)
+
+[Youtube](https://www.youtube.com/@steplauncher-mc)
+
+[Instagram](http://instagram.com/stepnickast)
+
+---
+
 🚀 A powerful, customizable and modern Minecraft launcher built with web technologies.
 
 StepLauncher is a fully featured Minecraft launcher designed for performance, flexibility, and user customization. Built with **JavaScript**, **CSS**, and **HTML** on top of **Electron**, it delivers a desktop-grade experience with complete control over versions, mods, themes, and optimization.
@@ -23,16 +34,3 @@ StepLauncher is a fully featured Minecraft launcher designed for performance, fl
 - [JavaScript](https://developer.mozilla.org/en-US/docs/Web/JavaScript) – App logic  
 - [HTML + CSS](https://developer.mozilla.org/en-US/docs/Web/HTML) – Interface  
 ---
-
-<h3 align="center">🖼️ StepLauncher Previews</h3>
-
-<p align="center">
-    <img src="assets/StepLauncher-news.png" alt="StepLauncher UI" width="600"/>
-  <img src="assets/Minecraft-news.png" alt="Minecraft Screen" width="600"/>
-</p>
-
-<p align="center">
-  <img src="assets/Config.png" alt="Config" width="500"/>
-  <img src="assets/Download.png" alt="Download" width="500"/>
-  <img src="assets/Executing.png" alt="Executing" width="500"/>
-</p>

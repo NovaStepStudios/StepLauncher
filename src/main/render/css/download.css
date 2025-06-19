@@ -199,6 +199,19 @@ select:hover {
         transform: rotate(360deg);
     }
 }
+.DownloadTime{
+    position: absolute;
+    top: 5.3rem;
+    left:50%;
+    transform: translateX(-50%);
+    color: white;
+    width: 90%;
+    height: 3rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
 /* ════════════════  CONSOLE GAMER STYLE  ════════════════ */
 #DebugConsoleDownload {
   width: 92%;

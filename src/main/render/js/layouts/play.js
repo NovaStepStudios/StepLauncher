@@ -6,6 +6,7 @@ const playBtn = document.getElementById("PlayGame");
 const logArea = document.getElementById("logArea");
 let installedVersions = [];
 
+// Devuelve el tipo de versión según prefijo
 function getTypeFromValue(value) {
   if (value.startsWith("forge-")) return "Forge";
   if (value.startsWith("fabric-")) return "Fabric";
@@ -63,22 +64,58 @@ export async function loadVersions() {
   }
 }
 
+let logLines = [];
+const MAX_LOG_LINES = 20;
+
 function appendLog(message, type = "info") {
   const time = new Date().toLocaleTimeString();
-  const prefix = {
-    info: "[INFO]",
-    debug: "[DEBUG]",
-    error: "[ERROR]",
-    data: "[DATA]",
-    warn: "[WARN]",
-  }[type] || "[LOG]";
+  const prefix =
+    {
+      info: "[INFO]",
+      debug: "[DEBUG]",
+      error: "[ERROR]",
+      data: "[DATA]",
+      warn: "[WARN]",
+    }[type] || "[LOG]";
 
-  logArea.textContent += `${time} ${prefix} ${message}\n`;
+  const line = `${time} ${prefix} ${message}`;
+
+  // Evitar repeticiones continuas
+  if (logLines.length && logLines[logLines.length - 1].startsWith(line)) {
+    // Podríamos mejorar con contador, pero simple está bien
+    logLines.push(line);
+  } else {
+    logLines.push(line);
+  }
+
+  if (logLines.length > MAX_LOG_LINES) {
+    logLines.shift();
+  }
+
+  logArea.textContent = logLines.join("\n");
   logArea.scrollTop = logArea.scrollHeight;
 }
 
-// Cargar versiones al iniciar
+function clearLog() {
+  logLines = [];
+  logArea.textContent = "";
+}
+
+// Registro único de listeners IPC fuera del click
+function registerIpcListeners() {
+  window.electronAPI.onMinecraftDebug((msg) => appendLog(msg, "debug"));
+  window.electronAPI.onMinecraftData((msg) => appendLog(msg, "data"));
+  window.electronAPI.onMinecraftError((msg) => appendLog(msg, "error"));
+  window.electronAPI.onMinecraftClose((code) => {
+    appendLog(`Minecraft se cerró con código: ${code}`, "info");
+    playBtn.disabled = false;
+    playBtn.textContent = "▶ JUGAR";
+  });
+}
+
+// Al cargar el script:
 loadVersions();
+registerIpcListeners();
 
 playBtn.addEventListener("click", async () => {
   const selectedVersion = versionSelect.value;
@@ -92,27 +129,25 @@ playBtn.addEventListener("click", async () => {
   }
 
   playBtn.disabled = true;
-
-  logArea.textContent = `--- Lanzamiento iniciado a las ${new Date().toLocaleTimeString()} ---\n`;
+  playBtn.textContent = `Jugando: ${selectedVersion}`;
+  clearLog();
+  appendLog(
+    `--- Lanzamiento iniciado a las ${new Date().toLocaleTimeString()} ---`,
+    "info"
+  );
   appendLog(`Iniciando Minecraft versión ${selectedVersion}...`, "info");
 
   try {
-    window.electronAPI.onMinecraftDebug((msg) => appendLog(msg, "debug"));
-    window.electronAPI.onMinecraftData((msg) => appendLog(msg, "data"));
-    window.electronAPI.onMinecraftError((msg) => appendLog(msg, "error"));
-    window.electronAPI.onMinecraftClose((code) => {
-      appendLog(`Minecraft se cerró con código: ${code}`, "info");
-      playBtn.disabled = false;
-    });
-
     await window.electronAPI.playMinecraft(selectedVersion);
-
     showNotification({
       type: "success",
       icon: "check",
       text: `Minecraft ${selectedVersion} se lanzó correctamente!`,
     });
-    appendLog(`Minecraft versión ${selectedVersion} lanzado con éxito.`, "info");
+    appendLog(
+      `Minecraft versión ${selectedVersion} lanzado con éxito.`,
+      "info"
+    );
   } catch (err) {
     console.error("Error lanzando Minecraft:", err);
     appendLog(`Error al lanzar Minecraft: ${err.message || err}`, "error");
@@ -122,5 +157,6 @@ playBtn.addEventListener("click", async () => {
       text: `Error al lanzar Minecraft: ${err.message || err}`,
     });
     playBtn.disabled = false;
+    playBtn.textContent = "▶ JUGAR";
   }
 });

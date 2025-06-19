@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -74,11 +74,20 @@ function getUsernameFromConfig() {
 
 ensureConfigFileExists();
 
+// ───── Canales de progreso de descarga ─────
+const DL_CHANNELS = {
+  all: "download-progress",
+  jvm: "jvm-progress",
+  libs: "libs-progress",
+  natives: "natives-progress",
+  assets: "assets-progress",
+  client: "client-progress",
+};
+
 contextBridge.exposeInMainWorld("windowControls", {
   minimize: () => ipcRenderer.send("window:minimize"),
   toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
   close: () => ipcRenderer.send("window:close"),
-
   requestMaximizedState: () =>
     ipcRenderer.send("window:request-maximized-state"),
   onMaximizedState: (cb) =>
@@ -90,13 +99,38 @@ contextBridge.exposeInMainWorld("userAPI", {
 });
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  // Descargar Minecraft
   downloadMinecraft: (opts) => ipcRenderer.invoke("DownloadMinecraft", opts),
-  openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
 
-  loadConfig: () => {
-    return getConfig();
+  // Escuchar progreso por etapa → 'jvm', 'libs', 'natives', 'assets', 'client' o 'all'
+  onDownload: (stage, cb) => {
+    const channel = DL_CHANNELS[stage] || DL_CHANNELS.all;
+    ipcRenderer.on(channel, (_e, msg) => cb(msg));
   },
 
+  // Métodos individuales (retrocompatibles)
+  onProgress: (cb) => ipcRenderer.on(DL_CHANNELS.all, (_, m) => cb(m)),
+  onJVMProgress: (cb) => ipcRenderer.on(DL_CHANNELS.jvm, (_, m) => cb(m)),
+  onLibsProgress: (cb) => ipcRenderer.on(DL_CHANNELS.libs, (_, m) => cb(m)),
+  onNativesProgress: (cb) =>
+    ipcRenderer.on(DL_CHANNELS.natives, (_, m) => cb(m)),
+  onAssetsProgress: (cb) => ipcRenderer.on(DL_CHANNELS.assets, (_, m) => cb(m)),
+  onClientProgress: (cb) => ipcRenderer.on(DL_CHANNELS.client, (_, m) => cb(m)),
+
+  // Eventos generales
+  onError: (cb) => ipcRenderer.on("download-error", (_, e) => cb(e)),
+  onDone: (cb) => ipcRenderer.on("download-done", (_, m) => cb(m)),
+  onEstimatedTime: (cb) =>
+    ipcRenderer.on("download-estimated-time", (_, ms) => cb(ms)),
+  onElapsed: (cb) =>
+    ipcRenderer.on("download-progress-time", (_, ms) => cb(ms)),
+
+  // Utilidad avanzada
+  on: (channel, cb) => ipcRenderer.on(channel, (_, data) => cb(_, data)),
+  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+
+  // Configuración
+  loadConfig: () => getConfig(),
   saveConfig: (data = {}) => {
     try {
       const current = getConfig();
@@ -106,35 +140,29 @@ contextBridge.exposeInMainWorld("electronAPI", {
       console.error("Error guardando configuración:", err);
     }
   },
-  gameMode: () =>
-    ipcRenderer.send("GameMode"),
 
-  onMinecraftDebug: (callback) =>
-    ipcRenderer.on("minecraft-debug", (_, msg) => callback(msg)),
+  // Diálogo para archivo
+  openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
 
-  onMinecraftData: (callback) =>
-    ipcRenderer.on("minecraft-data", (_, msg) => callback(msg)),
+  // Abrir links externos
+  openLink: (link) => {
+    if (typeof link === "string" && link.trim() !== "") {
+      shell.openExternal(link).catch((err) => {
+        console.error("Error al abrir link externo:", err);
+      });
+    }
+  },
 
-  onMinecraftError: (callback) =>
-    ipcRenderer.on("minecraft-error", (_, msg) => callback(msg)),
-
-  onMinecraftClose: (callback) =>
-    ipcRenderer.on("minecraft-close", (_, code) => callback(code)),
+  // Minecraft ejecución
   playMinecraft: (versionID) =>
     ipcRenderer.invoke("EjecutingMinecraft", versionID),
+  onMinecraftDebug: (cb) => ipcRenderer.on("minecraft-debug", (_, m) => cb(m)),
+  onMinecraftData: (cb) => ipcRenderer.on("minecraft-data", (_, m) => cb(m)),
+  onMinecraftError: (cb) => ipcRenderer.on("minecraft-error", (_, m) => cb(m)),
+  onMinecraftClose: (cb) => ipcRenderer.on("minecraft-close", (_, c) => cb(c)),
+  sendMinecraftLaunchError: (m) =>
+    ipcRenderer.send("minecraft-launch-error", m),
 
+  // Versiones instaladas
   getInstalledVersions: () => ipcRenderer.invoke("get-installed-versions"),
-
-  onProgress: (callback) =>
-    ipcRenderer.on("download-progress", (_, msg) => callback(msg)),
-
-  onError: (callback) =>
-    ipcRenderer.on("download-error", (_, err) => callback(err)),
-
-  onDone: (callback) =>
-    ipcRenderer.on("download-done", (_, msg) => callback(msg)),
-
-  sendMinecraftLaunchError: (message) => {
-    ipcRenderer.send("minecraft-launch-error", message);
-  },
 });

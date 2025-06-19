@@ -209,8 +209,8 @@ function bindControls() {
 function applyPendingChanges() {
   if (!Object.keys(configPending).length) {
     showNotification({
-      type: "warning",
-      text: "No hay cambios pendientes para aplicar.",
+      type: "accepted",
+      text: "Cambios guardados",
     });
     return;
   }
@@ -306,20 +306,17 @@ if (btnUploadBg && window.electronAPI?.openFileDialog) {
   });
 }
 
-// ** NUEVO: CARGAR CONFIG AL INICIO **
 async function loadInitialConfig() {
   try {
     const loaded = await window.electronAPI?.loadConfig();
     if (loaded && typeof loaded === "object") {
       configApplied = loaded;
-      // Aplicar colores CSS y fondo personalizado YA que dependemos de configApplied
       Object.entries(cssVars).forEach(([id, cssVar]) => {
         const val = deepGet(configApplied, bindings[id]);
         if (val != null) {
           document.documentElement.style.setProperty(cssVar, val);
         }
       });
-      // Fondo personalizado
       const bgPath = deepGet(configApplied, "apariencia.bgCustomUser");
       if (bgPath) applyBgCustom(bgPath);
     } else {

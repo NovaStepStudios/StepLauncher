@@ -1,151 +1,186 @@
-<link rel="stylesheet" href="../../render/css/news.css">
+<link rel="stylesheet" href="../../render/css/news.css" />
+
 <div class="Container">
   <div class="loaderContainer Disabled">
     <div class="loader"></div>
     <h3 data-lang="Entries.Loaders.LoadNews"></h3>
   </div>
   <div class="Other-Left Disabled"></div>
-  <select name="" id="SelectNews">
+
+  <select id="SelectNews">
     <option value="Minecraft">Minecraft</option>
     <option value="StepLauncher" selected>StepLauncher</option>
   </select>
-  <div id="NEWSMC"></div>
-  <div id="NEWSST" class="Disabled"></div>
+
+  <div id="NEWSMC" class="news-container Disabled"></div>
+  <div id="NEWSST" class="news-container"></div>
+
   <div class="Other-Right Disabled"></div>
 </div>
-<script async>
-  // ========== CONFIGURACIÓN DE NOTICIAS ==========
-  const NEWS_CONTAINER_ID_MC = "NEWSMC";
-  const NEWS_CONTAINER_ID_ST = "NEWSST";
-  const NEWS_BATCH_SIZE = 15;
-
-  const LOADER_CLASSNAMES = [
-    ".loaderContainer",
-    ".Other-Left",
-    ".Other-Right"
-  ];
-
-  const NEWS_URLS = {
-    Minecraft: "https://launchercontent.mojang.com/v2/javaPatchNotes.json",
-    StepLauncher: "https://novastep-studios.web.app/launcher/news/news.json"
+<script>
+  const CONFIG = {
+    containers: {
+      Minecraft: "NEWSMC",
+      StepLauncher: "NEWSST"
+    },
+    urls: {
+      Minecraft: "https://launchercontent.mojang.com/v2/javaPatchNotes.json",
+      StepLauncher: "https://novastep-studios.web.app/launcher/news/news.json"
+    },
+    loaderSelectors: [".loaderContainer", ".Other-Left", ".Other-Right"],
+    batchSize: 15,
+    validTypes: ["important", "update", "event", "info", "warning", "community", "other"]
   };
 
+  let currentType = "StepLauncher";
   let allNews = [];
   let loadedCount = 0;
-  let currentNewsType = "StepLauncher";
+  let cachedNews = {};
 
-  function setLoaderActive(active) {
-    LOADER_CLASSNAMES.forEach(selector => {
-      const el = document.querySelector(selector);
+  const qs = sel => document.querySelector(sel);
+
+  function setLoaderVisible(active) {
+    CONFIG.loaderSelectors.forEach(sel => {
+      const el = qs(sel);
       if (el) {
-        el.classList.toggle("Disabled", !active);
         el.classList.toggle("Active", active);
+        el.classList.toggle("Disabled", !active);
       }
     });
   }
 
-  function formatDateString(dateString) {
-    if (!dateString) return "";
-    const [year, month, day] = dateString.split("-");
-    return `${day}/${month}/${year}`;
+  function formatDate(str) {
+    if (!str) return "";
+    const [y, m, d] = str.split("-");
+    if (!y || !m || !d) return "";
+    return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
   }
 
-  function formatFullDate(date) {
-    const d = date.getDate().toString().padStart(2, "0");
-    const m = (date.getMonth() + 1).toString().padStart(2, "0");
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
+  function formatDateObj(d) {
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   }
 
-  async function fetchNews(type) {
-    try {
-      const res = await fetch(NEWS_URLS[type]);
-      if (!res.ok) throw new Error("Error al cargar noticias");
-      const data = await res.json();
+  function updateActiveContainer() {
+    Object.entries(CONFIG.containers).forEach(([type, id]) => {
+      const el = qs(`#${id}`);
+      if (el) {
+        el.classList.toggle("Disabled", currentType !== type);
+      }
+    });
+  }
 
-      allNews = type === "StepLauncher"
-        ? (data.Entries || [])
-        : (data.entries || data.news || []);
+  function createLinksHTML(links) {
+    if (!links) return "";
+    const parts = [];
+    const add = (url, label) => {
+      if (url && url.trim()) {
+        parts.push(`<a href="#" data-link="${url}" class="news-link">${label}</a>`);
+      }
+    };
 
-      loadedCount = 0;
+    add(links.Github, "GitHub");
+    add(links.Youtube, "YouTube");
+    add(links.Instagram, "Instagram");
+    add(links.NPM, "NPM");
 
-      document.getElementById(NEWS_CONTAINER_ID_MC).innerHTML = "";
-      document.getElementById(NEWS_CONTAINER_ID_ST).innerHTML = "";
+    const others = Array.isArray(links.Other ?? links.other) ? links.Other ?? links.other : [];
+    others.forEach(url => {
+      try {
+        const hostname = new URL(url).hostname.replace(/^www\./, "");
+        add(url, hostname);
+      } catch {}
+    });
 
-      renderNewsBatch();
-    } catch (err) {
-      console.error(err);
+    return parts.length ? `<div class="links">${parts.join(" ")}</div>` : "";
+  }
+
+  function shouldSkipEntry(entry, isStepLauncher) {
+    if (isStepLauncher) {
+      return !entry.Title && !entry.Description;
     }
+    // Para Minecraft, validamos por título o texto
+    return !entry.title && !entry.shortText && !entry.content;
   }
 
   function renderNewsBatch() {
-    const isStepLauncher = currentNewsType === "StepLauncher";
-    const containerId = isStepLauncher ? NEWS_CONTAINER_ID_ST : NEWS_CONTAINER_ID_MC;
-    const container = document.getElementById(containerId);
-    if (!container) return;
+    const isStepLauncher = currentType === "StepLauncher";
+    const container = qs(`#${CONFIG.containers[currentType]}`);
+    if (!container) {
+      console.error("Contenedor no encontrado para:", currentType);
+      return;
+    }
 
-    const nextCount = Math.min(loadedCount + NEWS_BATCH_SIZE, allNews.length);
-
+    const nextCount = Math.min(loadedCount + CONFIG.batchSize, allNews.length);
     let html = "";
+
     for (let i = loadedCount; i < nextCount; i++) {
       const news = allNews[i];
+      if (shouldSkipEntry(news, isStepLauncher)) continue;
 
       if (isStepLauncher) {
-        const title = news.Title || null;
-        const date = news.Date ? formatDateString(news.Date) : null;
-        const description = news.Description || null;
-        const image = news.Image || null;
-        const links = news.Links || null;
-        let type = (news.Type || "").toLowerCase();
+        const {
+          Title = "",
+          Date = "",
+          Description = "",
+          Image = "",
+          Links = {},
+          Type = "",
+          Author = "",
+          Tags = []
+        } = news;
 
-        const validTypes = ["important", "update", "event", "info", "warning", "community", "other"];
-        const hasValidType = validTypes.includes(type);
-
-        html += `<article class="news-entry${hasValidType ? ` ${type}` : ""}">`;
-
-        if (title) html += `<h2 class="title">${title}</h2>`;
-        if (date) html += `<div class="date">${date}</div>`;
-        if (image) html += `<img src="${image}" alt="Imagen">`;
-        if (description) html += `<p class="description">${description}</p>`;
-
-        if (links && typeof links === "object") {
-          let linksHTML = "";
-          if (links.Github) linksHTML += `<a href="#" data-link="${links.Github}" class="news-link">GitHub</a> `;
-          if (links.Youtube) linksHTML += `<a href="#" data-link="${links.Youtube}" class="news-link">YouTube</a> `;
-          if (links.Instagram) linksHTML += `<a href="#" data-link="${links.Instagram}" class="news-link">Instagram</a> `;
-          if (links.NPM) linksHTML += `<a href="#" data-link="${links.NPM}" class="news-link">NPM</a> `;
-
-          if (Array.isArray(links.Other)) {
-            links.Other.forEach(link => {
-              if (link && typeof link === "string" && link.trim() !== "") {
-                linksHTML += `<a href="#" data-link="${link}" class="news-link">Otro</a> `;
-              }
-            });
-          }
-          if (linksHTML) html += `<div class="links">${linksHTML.trim()}</div>`;
-        }
-        html += `</article>`;
+        const typeClass = CONFIG.validTypes.includes(Type.toLowerCase()) ? Type.toLowerCase() : "";
+        const tagsHTML = Array.isArray(Tags) && Tags.length
+          ? `<div class="tags">${Tags.map(tag => `<span class="tag"># ${tag}</span>`).join(" ")}</div>`
+          : "";
+        html += `
+          <article class="news-entry ${typeClass}">
+            ${Title ? `<h2 class="title">${Title}</h2>` : ""}
+            ${Author ? `<div class="author">Por: ${Author}</div>` : ""}
+            ${Date ? `<div class="date">${formatDate(Date)}</div>` : ""}
+            ${tagsHTML}
+            ${Image ? `<img src="${Image}" loading="lazy" alt="Imagen">` : ""}
+            ${Description ? `<p class="description">${Description}</p>` : ""}
+            ${createLinksHTML(Links)}
+          </article>
+        `;
       } else {
-        const dateObj = new Date(news.date || news.created_at || Date.now());
-        const formattedDate = formatFullDate(dateObj);
-        const imgUrl = news.image?.url
-          ? "https://launchercontent.mojang.com" + news.image.url
-          : (news.image || "");
-        const imgAlt = news.image?.title || news.title || "Imagen";
+        // Para Minecraft (Mojang)
+        const title = news.title || "";
+        const dateStr = news.date || news.created_at || "";
+        const date = dateStr ? formatDate(dateStr.split("T")[0]) : "";
+        const description = news.shortText || news.content || "";
+        // La imagen puede estar en news.image.url o ser directamente string
+        const imgUrl = news.image?.url ? `https://launchercontent.mojang.com${news.image.url}` : (typeof news.image === "string" ? news.image : "");
+        const altText = news.image?.title || title || "Imagen";
 
-        html += `<article>`;
-        if (news.title) html += `<h2>${news.title}</h2>`;
-        html += `<div class="date">${formattedDate}</div>`;
-        if (imgUrl) html += `<img src="${imgUrl}" alt="${imgAlt}">`;
-        if (news.shortText || news.content) html += `<p class="short-text">${news.shortText || news.content}</p>`;
-        html += `</article>`;
+        // Para los tags, Mojang usa 'categories' que es array de strings
+        const categories = Array.isArray(news.categories) ? news.categories : [];
+        const tagsHTML = categories.length
+          ? `<div class="tags">${categories.map(cat => `<span class="tag">${cat}</span>`).join(" ")}</div>`
+          : "";
+
+        html += `
+          <article class="news-entry">
+            ${title ? `<h2 class="title">${title}</h2>` : ""}
+            ${date ? `<div class="date">${date}</div>` : ""}
+            ${tagsHTML}
+            ${imgUrl ? `<img src="${imgUrl}" loading="lazy" alt="${altText}">` : ""}
+            ${description ? `<p class="description">${description}</p>` : ""}
+          </article>
+        `;
       }
     }
 
-    container.insertAdjacentHTML("beforeend", html);
+    if (html === "") {
+      container.innerHTML = "<p>No hay noticias para mostrar.</p>";
+    } else {
+      container.insertAdjacentHTML("beforeend", html);
+    }
+
     loadedCount = nextCount;
 
-    let btn = document.getElementById("btnLoadMoreNews");
+    let btn = qs("#btnLoadMoreNews");
     if (!btn) {
       btn = document.createElement("button");
       btn.id = "btnLoadMoreNews";
@@ -153,49 +188,76 @@
       btn.addEventListener("click", renderNewsBatch);
       container.after(btn);
     }
-
     btn.style.display = loadedCount >= allNews.length ? "none" : "inline-block";
   }
 
-  // --- Aquí está el listener global para abrir links con electronApi ---
-  document.addEventListener("click", function (e) {
-    const target = e.target;
-    if (target.matches("a.news-link")) {
-      e.preventDefault();
-      const link = target.getAttribute("data-link");
-      if (link) {
-        if (window.electronApi && typeof window.electronApi.openLink === "function") {
-          window.electronApi.openLink(link);
-        } else {
-          console.error("No se pudo abrir el link: no existe window.electronApi.openLink");
-        }
-      }
+  async function fetchNews(type) {
+    setLoaderVisible(true);
+
+    if (cachedNews[type]) {
+      allNews = cachedNews[type];
+      loadedCount = 0;
+      qs(`#${CONFIG.containers[type]}`).innerHTML = "";
+      renderNewsBatch();
+      setLoaderVisible(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(CONFIG.urls[type]);
+      if (!res.ok) throw new Error("Error al cargar noticias");
+      const data = await res.json();
+
+      allNews = type === "StepLauncher"
+        ? (Array.isArray(data.Entries) ? data.Entries : [])
+        : (Array.isArray(data.entries || data.news) ? data.entries || data.news : []);
+
+      // DEBUG:
+      console.log(`Noticias cargadas (${type}):`, allNews);
+
+      allNews.sort((a, b) => new Date(b.Date || b.date || 0) - new Date(a.Date || a.date || 0));
+
+      cachedNews[type] = allNews;
+      loadedCount = 0;
+      qs(`#${CONFIG.containers[type]}`).innerHTML = "";
+      renderNewsBatch();
+    } catch (err) {
+      console.error(err);
+      const container = qs(`#${CONFIG.containers[type]}`);
+      if (container) container.innerHTML = "<p>Error al cargar noticias.</p>";
+    } finally {
+      setLoaderVisible(false);
+    }
+  }
+
+  document.addEventListener("click", e => {
+    const link = e.target.closest("a.news-link");
+    if (!link?.dataset.link) return;
+    e.preventDefault();
+    if (window.parent?.postMessage) {
+      window.parent.postMessage({ type: "openLink", url: link.dataset.link }, "*");
+    } else {
+      window.open(link.dataset.link, "_blank", "noopener,noreferrer");
     }
   });
 
-  document.getElementById("SelectNews").addEventListener("change", async (e) => {
-    const selected = e.target.value;
-    currentNewsType = selected;
-
-    document.getElementById(NEWS_CONTAINER_ID_MC).classList.toggle("Disabled", selected !== "Minecraft");
-    document.getElementById(NEWS_CONTAINER_ID_ST).classList.toggle("Disabled", selected !== "StepLauncher");
-
-    setLoaderActive(true);
-
-    setTimeout(() => {
-      fetchNews(selected).then(() => {
-        setLoaderActive(false);
-      });
-    }, 1000);
+  qs("#SelectNews")?.addEventListener("change", e => {
+  currentType = e.target.value;
+  
+  // Limpio ambos contenedores para evitar mezcla
+  Object.values(CONFIG.containers).forEach(id => {
+    const el = qs(`#${id}`);
+      if (el) el.innerHTML = "";
+    });
+  
+    updateActiveContainer();
+    setLoaderVisible(true);
+    setTimeout(() => fetchNews(currentType), 100);
   });
 
-  window.addEventListener("DOMContentLoaded", () => {
-    setLoaderActive(true);
 
-    setTimeout(() => {
-      fetchNews(currentNewsType).then(() => {
-        setLoaderActive(false);
-      });
-    }, 2000);
+  window.addEventListener("DOMContentLoaded", () => {
+    updateActiveContainer();
+    fetchNews(currentType);
   });
 </script>

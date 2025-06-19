@@ -18,10 +18,11 @@ class MinecraftEjecuting extends EventEmitter {
 
   async launch(opts) {
     if (!opts?.version?.versionID) {
-      this.emit("error", "No se ha especificado una versión válida");
+      this._emitErrorAndClose("No se ha especificado una versión válida");
       return null;
     }
 
+    // Configuración base
     this.options = {
       root: path.resolve(opts.root || "./minecraft"),
       javaPath: opts.javaPath || "java",
@@ -34,45 +35,63 @@ class MinecraftEjecuting extends EventEmitter {
         ...opts.user,
       },
     };
-
     this.options.user.type = this.options.user.type || "legacy";
 
+    // Leer archivo version.json
     const versionJsonPath = path.join(
       this.options.root,
       "versions",
       this.options.version.versionID,
       `${this.options.version.versionID}.json`
     );
-
-    if (!fs.existsSync(versionJsonPath)) {
-      this.emit(
-        "error",
+    if (!(await this._exists(versionJsonPath))) {
+      this._emitErrorAndClose(
         `Archivo de versión no encontrado: ${versionJsonPath}`
       );
       return null;
     }
-
     try {
       const rawData = await fsPromises.readFile(versionJsonPath, "utf-8");
       this.versionDataCache = JSON.parse(rawData);
-    } catch (e) {
-      this.emit("error", `Error al leer archivo de versión: ${e.message}`);
+    } catch (err) {
+      this._emitErrorAndClose(
+        `Error al leer archivo de versión: ${err.message}`
+      );
       return null;
     }
 
     this.assetIndexIdCache =
       this.versionDataCache.assetIndex?.id || this.options.version.versionID;
 
-    await Promise.all([this.getLibraries(), this._createDirs()]);
+    // Crear carpetas necesarias
+    await this._createDirs();
 
+    // Obtener librerías válidas
+    const libraries = await this.getLibraries();
+
+    // Validar java instalado y accesible
+    try {
+      await this._checkJava(this.options.javaPath);
+    } catch (err) {
+      this._emitErrorAndClose(`Java inválido o no encontrado: ${err.message}`);
+      return null;
+    }
+
+    // Extraer natives antes de iniciar
+    try {
+      await this._extractNatives();
+    } catch (err) {
+      this.emit("debug", `Error extrayendo natives: ${err.message}`);
+    }
+
+    // Construir argumentos de lanzamiento
     try {
       this.emit("debug", `Iniciando versión ${this.options.version.versionID}`);
-      const launchArgs = await this._buildLaunchArgs(await this.getLibraries());
+      const launchArgs = await this._buildLaunchArgs(libraries);
       this.emit("debug", `Argumentos: ${launchArgs.join(" ")}`);
       return this._startMinecraftProcess(launchArgs);
-    } catch (error) {
-      this.emit("error", `Error al lanzar Minecraft: ${error.message}`);
-      this.emit("close", 1);
+    } catch (err) {
+      this._emitErrorAndClose(`Error al lanzar Minecraft: ${err.message}`);
       return null;
     }
   }
@@ -88,32 +107,21 @@ class MinecraftEjecuting extends EventEmitter {
       "indexes",
       `${this.assetIndexIdCache}.json`
     );
-
-    try {
-      await fsPromises.access(assetIndexPath);
-    } catch {
+    if (!(await this._exists(assetIndexPath))) {
       this.emit(
         "debug",
-        `Archivo de índice de assets no encontrado: ${assetIndexPath}`
+        `Archivo índice de assets no encontrado: ${assetIndexPath}`
       );
       return {};
     }
-
     try {
       const rawIndex = await fsPromises.readFile(assetIndexPath, "utf-8");
       const parsed = JSON.parse(rawIndex);
-      if (!parsed.objects) {
-        this.emit(
-          "debug",
-          `El índice de assets no contiene 'objects': ${assetIndexPath}`
-        );
-        return {};
-      }
-      return parsed.objects;
-    } catch (e) {
+      return parsed.objects || {};
+    } catch (err) {
       this.emit(
         "error",
-        `Error leyendo/parsing índice de assets: ${e.message}`
+        `Error leyendo/parsing índice de assets: ${err.message}`
       );
       return {};
     }
@@ -147,7 +155,8 @@ class MinecraftEjecuting extends EventEmitter {
             "libraries",
             lib.downloads.artifact.path
           );
-        } else if (lib.name) {
+        }
+        if (lib.name) {
           const [group, artifact, version] = lib.name.split(":");
           return path.join(
             this.options.root,
@@ -162,16 +171,14 @@ class MinecraftEjecuting extends EventEmitter {
       })
       .filter(Boolean);
 
-    const existenceChecks = libPaths.map(async (libPath) => {
-      try {
-        await fsPromises.access(libPath);
-        return libPath;
-      } catch {
-        return null;
-      }
-    });
+    const existingLibs = (
+      await Promise.all(
+        libPaths.map(async (libPath) =>
+          (await this._exists(libPath)) ? libPath : null
+        )
+      )
+    ).filter(Boolean);
 
-    const existingLibs = (await Promise.all(existenceChecks)).filter(Boolean);
     this.libraryCache.set(cacheKey, existingLibs);
     return existingLibs;
   }
@@ -190,30 +197,24 @@ class MinecraftEjecuting extends EventEmitter {
   }
 
   _getPlatform() {
-    return process.platform === "win32"
-      ? "windows"
-      : process.platform === "darwin"
-      ? "osx"
-      : process.platform === "linux"
-      ? "linux"
-      : "unknown";
+    if (process.platform === "win32") return "windows";
+    if (process.platform === "darwin") return "osx";
+    if (process.platform === "linux") return "linux";
+    return "unknown";
   }
 
   _formatTimestamp() {
     const now = new Date();
-    const day = now.getDate();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-    const hours = now.getHours().toString().padStart(2, "0");
-    const minutes = now.getMinutes().toString().padStart(2, "0");
-    const seconds = now.getSeconds().toString().padStart(2, "0");
-
-    return `[ ${day} / ${month} / ${year} || Time : ${hours} : ${minutes} : ${seconds} ]`;
+    const pad = (n) => n.toString().padStart(2, "0");
+    return `[${pad(now.getDate())}/${pad(
+      now.getMonth() + 1
+    )}/${now.getFullYear()} ${pad(now.getHours())}:${pad(
+      now.getMinutes()
+    )}:${pad(now.getSeconds())}]`;
   }
 
   async _loadOrCreateUser(rootPath) {
     const profilesPath = path.resolve(rootPath, "launcher_profiles.json");
-
     let profilesData = {};
     try {
       const rawData = await fsPromises.readFile(profilesPath, "utf-8");
@@ -226,7 +227,6 @@ class MinecraftEjecuting extends EventEmitter {
       profilesData.profiles = {};
     }
 
-    // Buscar perfil legacy válido
     for (const key in profilesData.profiles) {
       const p = profilesData.profiles[key];
       if (p.type === "legacy" && p.uuid && p.accessToken) {
@@ -234,7 +234,6 @@ class MinecraftEjecuting extends EventEmitter {
       }
     }
 
-    // Si no existe, crear nuevo perfil
     const newUUID = crypto.randomUUID();
     const newAccessToken = crypto.randomBytes(32).toString("hex");
     const newName = this.options.user?.name || "Player";
@@ -254,10 +253,10 @@ class MinecraftEjecuting extends EventEmitter {
         JSON.stringify(profilesData, null, 2),
         "utf-8"
       );
-    } catch (e) {
+    } catch (err) {
       this.emit(
         "error",
-        `Error al guardar launcher_profiles.json: ${e.message}`
+        `Error al guardar launcher_profiles.json: ${err.message}`
       );
     }
 
@@ -275,8 +274,8 @@ class MinecraftEjecuting extends EventEmitter {
 
     await Promise.all(
       dirs.map((dir) =>
-        fsPromises.mkdir(dir, { recursive: true }).catch((e) => {
-          this.emit("error", `Error creando directorio ${dir}: ${e.message}`);
+        fsPromises.mkdir(dir, { recursive: true }).catch((err) => {
+          this.emit("error", `Error creando directorio ${dir}: ${err.message}`);
         })
       )
     );
@@ -291,9 +290,7 @@ class MinecraftEjecuting extends EventEmitter {
       `${versionID}.jar`
     );
 
-    try {
-      await fsPromises.access(versionJar);
-    } catch {
+    if (!(await this._exists(versionJar))) {
       this.emit("error", `JAR de versión no encontrado: ${versionJar}`);
     }
 
@@ -349,31 +346,34 @@ class MinecraftEjecuting extends EventEmitter {
     const proc = child_process.spawn(javaPath, args.slice(1), spawnOptions);
 
     proc.stdout.on("data", (data) => {
-      const msg = data.toString();
+      const msg = data.toString().trim();
       this.emit("data", msg);
-      this.logBuffer.push(`${this._formatTimestamp()} ${msg}`);
+      this.logBuffer.push(`${this._formatTimestamp()} ${msg}\n`);
     });
 
     proc.stderr.on("data", (data) => {
-      const err = data.toString();
+      const err = data.toString().trim();
       this.emit("error", err);
-      this.logBuffer.push(`${this._formatTimestamp()} [ERROR] ${err}`);
+      this.logBuffer.push(`${this._formatTimestamp()} [ERROR] ${err}\n`);
     });
 
-    proc.on("close", (code) => {
+    proc.on("close", async (code) => {
       if (code !== 0 && this.logBuffer.length > 0) {
-        this._writeCrashLog();
+        await this._writeCrashLog();
       }
       this.emit("close", code);
       this.logBuffer = [];
     });
 
-    proc.on("error", (err) => {
+    proc.on("error", async (err) => {
       this.emit("error", `Error en el proceso: ${err.message}`);
-      this.emit("close", 1);
+      this.logBuffer.push(
+        `${this._formatTimestamp()} [PROCESS ERROR] ${err.message}\n`
+      );
       if (this.logBuffer.length > 0) {
-        this._writeCrashLog();
+        await this._writeCrashLog();
       }
+      this.emit("close", 1);
       this.logBuffer = [];
     });
 
@@ -381,14 +381,90 @@ class MinecraftEjecuting extends EventEmitter {
   }
 
   async _writeCrashLog() {
-    const logDir = path.resolve(this.options.root, "logs");
-    await fsPromises.mkdir(logDir, { recursive: true });
+    try {
+      const logDir = path.resolve(this.options.root, "logs");
+      await fsPromises.mkdir(logDir, { recursive: true });
 
-    const logPath = path.join(logDir, `stepLauncher_crash_${Date.now()}.log`);
-    const content = this.logBuffer.join("");
+      const logPath = path.join(logDir, `stepLauncher_crash_${Date.now()}.log`);
+      const content = this.logBuffer.join("");
+      await fsPromises.writeFile(logPath, content, "utf-8");
+      this.emit("debug", `Log de crash guardado en: ${logPath}`);
+    } catch (err) {
+      this.emit("error", `Error escribiendo log de crash: ${err.message}`);
+    }
+  }
 
-    await fsPromises.writeFile(logPath, content, "utf-8");
-    this.emit("debug", `Log de crash guardado en: ${logPath}`);
+  // Helper para verificar existencia archivo/carpeta
+  async _exists(pathToCheck) {
+    try {
+      await fsPromises.access(pathToCheck);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Validar java -version
+  async _checkJava(javaPath) {
+    return new Promise((resolve, reject) => {
+      const proc = child_process.spawn(javaPath, ["-version"]);
+      let stderr = "";
+      proc.stderr.on("data", (chunk) => (stderr += chunk.toString()));
+      proc.on("close", (code) => {
+        if (code !== 0) {
+          reject(new Error("El proceso java -version salió con error"));
+          return;
+        }
+        const match = stderr.match(/version "(?<ver>\d+)/);
+        if (!match || !match.groups?.ver || parseInt(match.groups.ver) < 8) {
+          reject(new Error(`Versión de Java insuficiente: ${stderr.trim()}`));
+          return;
+        }
+        resolve();
+      });
+      proc.on("error", (err) => reject(err));
+    });
+  }
+
+  // Extrae natives (opcional, solo si están)
+  async _extractNatives() {
+    const unzipper = require("unzipper");
+    const nativesDir = this.getNatives();
+    await fsPromises.mkdir(nativesDir, { recursive: true });
+
+    const libsWithNatives = (this.versionDataCache.libraries || []).filter(
+      (lib) =>
+        lib.downloads?.classifiers &&
+        (lib.downloads.classifiers[`natives-${this.platform}`] ||
+          lib.downloads.classifiers[`natives_${this.platform}`])
+    );
+
+    for (const lib of libsWithNatives) {
+      const classifiers = lib.downloads.classifiers;
+      const nativeKey = `natives-${this.platform}`;
+      const nativeAltKey = `natives_${this.platform}`;
+      const nativeFile = classifiers[nativeKey] || classifiers[nativeAltKey];
+      if (!nativeFile) continue;
+
+      const nativePath = path.join(
+        this.options.root,
+        "libraries",
+        nativeFile.path
+      );
+      if (!(await this._exists(nativePath))) continue;
+
+      try {
+        await fs
+          .createReadStream(nativePath)
+          .pipe(unzipper.Extract({ path: nativesDir }))
+          .promise();
+      } catch (err) {
+        this.emit(
+          "debug",
+          `Error extrayendo natives desde ${nativePath}: ${err.message}`
+        );
+      }
+    }
   }
 }
 

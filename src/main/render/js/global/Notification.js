@@ -65,6 +65,7 @@ function createNotificationContainer() {
   notification.id = "Notification";
   notification.className = "Notification";
   notification.innerHTML = `
+  
     <div class="ContainerNotificationText">
       <span class="material-icons" id="IconNotification"></span>
       <h4 id="TextNotification"></h4>

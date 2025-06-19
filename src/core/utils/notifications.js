@@ -17,7 +17,7 @@ class NotificationManager {
   static send({
     title = "StepLauncher",
     body,
-    icon = path.join(__dirname,'icon.ico'),
+    icon = path.join(__dirname,'icon.ico') || path.join(__dirname, 'appImage.png'),
     silent = false,
     timeoutType,
     actions = [],

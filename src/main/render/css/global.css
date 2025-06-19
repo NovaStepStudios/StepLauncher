@@ -151,6 +151,9 @@ hr{
     object-fit: cover;
     color: white;
     background-color: transparent;
+    img{
+        width: 80%;
+    }
 }
 
 .TittleBar .window-controls button:hover {

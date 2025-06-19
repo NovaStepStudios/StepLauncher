@@ -5,7 +5,8 @@
   "main": "src/app.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux"
   },
   "repository": {
     "type": "git",
@@ -31,17 +32,18 @@
   "bugs": {
     "url": "https://github.com/NovaStepStudios/StepLauncher/issues"
   },
-  "homepage": "https://github.com/NovaStepStudios/StepLauncher#readme",
+  "homepage": "https://steplauncher.web.app",
   "devDependencies": {
     "electron": "^36.4.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "electron-log": "^5.4.1"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "minecraft-launcher-core": "^3.18.2",
     "discord-rpc": "^4.0.1",
-    "tar": "^7.4.3",
+    "electron-updater": "^6.6.2",
     "node-fecth": "^0.0.1-security",
+    "tar": "^7.4.3",
     "unzipper": "^0.12.3"
   },
   "build": {
@@ -50,18 +52,20 @@
     "directories": {
       "output": "Release"
     },
-    "artifactName": "${platform}/${productName}-${version}.${ext}",
     "files": [
       "src/**/*",
+      "node_modules/",
       "package.json"
     ],
-    "linux":{
+    "linux": {
       "icon": "./icons/linux.png",
-      "target": "appimage",
+      "target": [
+        "appimage"
+      ],
       "category": "game"
     },
     "win": {
-      "icon":"./icons/win.ico",
+      "icon": "./icons/win.ico",
       "target": [
         "nsis"
       ]

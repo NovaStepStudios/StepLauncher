@@ -5,9 +5,8 @@
     <div class="SideBarItem" data-target="launcher" style="cursor:pointer;">Launcher</div>
     <div class="SideBarItem" data-target="minecraft" style="cursor:pointer;">Minecraft</div>
     <div class="SideBarItem" data-target="apariencia" style="cursor:pointer;">Apariencia</div>
-    <div class="SideBarItem" data-target="dev" style="cursor:pointer;">Desarrollador</div>
-    <div class="SideBarItem close-btn" style="cursor:pointer;">Guardar</div>
-    <button id="btn-apply-config" class="Submit" style="width: 90%; margin:auto;">Aplicar</button>
+    <!-- <div class="SideBarItem" data-target="dev" style="cursor:pointer;">Desarrollador</div> -->
+    <div class="SideBarItem close-btn" id="btn-apply-config" class="Submit" style="cursor:pointer;">Guardar</div>
   </div>
 
   <!-- Paneles -->
@@ -27,18 +26,18 @@
             <canvas id="skin_container"></canvas>
           </div>
           <div class="SubmitContainer">
-            <button class="Submit" id="btn-upload-skin">Subir Skin</button>
+            <!-- <button class="Submit" id="btn-upload-skin">Subir Skin</button> -->
           </div>
         </div>
         <h2>Launcher</h2>
-        <h2>Sonidos al iniciar</h2>
+        <!-- <h2>Sonidos al iniciar</h2>
         <select id="select-startup-sounds">
           <option value=""></option>
           <option value=""></option>
           <option value=""></option>
           <option value=""></option>
         </select>
-        <button id="btn-play-sound">Reproducir</button>
+        <button id="btn-play-sound">Reproducir</button> -->
         <h2>Comportamiento</h2>
         <label for="checkbox-close-launcher">
           <input type="checkbox" id="checkbox-close-launcher" />
@@ -61,12 +60,12 @@
   
     <!-- Panel: Minecraft -->
     <div class="PanelConfig" data-panel="minecraft" id="panel-minecraft">
-      <div class="config-section">
+      <!-- <div class="config-section">
         <h2>Ruta .minecraft</h2>
         <label for="input-minecraft-path">Directorio:
           <input type="text" id="input-minecraft-path" placeholder="C:\Users\Usuario\AppData\.minecraft" />
         </label>
-      </div>
+      </div> -->
       <div class="config-section">
         <h2>Java</h2>
         <label for="input-java-path">Ruta del ejecutable Java:
@@ -121,7 +120,7 @@
       </div>
       <div class="config-section">
         <h2>Fondo personalizado</h2>
-        <label for="btn-upload-bg">Imagen de fondo / video:</label>
+        <label for="btn-upload-bg">Imagen de fondo:</label>
         <button class="SubmitArchive" id="btn-upload-bg">Subir archivo</button>
       </div>
     </div>

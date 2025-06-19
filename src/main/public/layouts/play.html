@@ -1,5 +1,25 @@
 <link rel="stylesheet" href="../render/css/download.css" />
+<style>
+  pre.logArea {
+    background: #111;
+    color: #ddd;
+    font-size: 0.85rem;
+    padding: 0.6rem;
+    border-radius: 0.5rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 35vh;
+    white-space: pre-wrap;
+  }
 
+  pre.logArea .error {
+    color: #ff6b6b;
+  }
+
+  pre.logArea .debug {
+    color: #6bc6ff;
+  }
+</style>
 <div class="Content">
   <div class="Card">
     <h2>Jugar a Minecraft</h2>
@@ -17,7 +37,7 @@
     <button class="DownloadBtn" id="PlayGame" style="height: 3rem;">▶ JUGAR</button>
 
     <!-- Área de logs -->
-    <pre id="logArea" style="margin-top:1rem; max-height: 60dvh; overflow-y: auto; background:#222; color:#eee; padding:0.5rem; border-radius:0.5rem; font-size: 0.9rem;"></pre>
+    <pre id="logArea" class="logArea"></pre>
   </div>
 </div>
 <script type="module" src="../render/js/layouts/play.js"></script>

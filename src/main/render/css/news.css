@@ -4,7 +4,6 @@
     -webkit-user-select: none;
     scrollbar-width: thin;
     scrollbar-color: #0066ff #000;
-
     img {
         pointer-events: none;
     }
@@ -41,39 +40,6 @@
     color: white;
 }
 
-article {
-    background-color: #1115;
-    border-radius: 1rem;
-    padding: 1rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
-}
-
-article h2 {
-    margin: 0 0 0.3rem 0;
-    font-weight: 700;
-    font-size: 1.5rem;
-}
-
-article .date {
-    font-size: 0.8rem;
-    color: #aaa;
-    margin-bottom: 0.6rem;
-}
-
-article img {
-    aspect-ratio: 1/1;
-    object-fit: cover;
-    border-radius: 0.8rem;
-    margin-bottom: 0.6rem;
-    display: block;
-    margin: auto;
-}
-
-article p.short-text {
-    font-size: 1rem;
-    line-height: 1.3;
-}
 
 #btnLoadMoreNews {
     position: fixed;
@@ -254,6 +220,7 @@ select {
     transition: background 0.3s ease, box-shadow 0.3s ease;
     outline: none;
     cursor: pointer;
+    z-index: 2;
 }
 
 select:hover {
@@ -282,6 +249,10 @@ option {
     border-left: 0.4rem solid transparent;
     cursor: pointer;
 }
+.news-entry p.short-text {
+    font-size: 1rem;
+    line-height: 1.3;
+}
 
 .news-entry:hover {
     background-color: rgba(50, 50, 50, 0.7);
@@ -302,8 +273,20 @@ option {
     margin-bottom: 0.5rem;
     color: #f1f1f1;
 }
+.tag {
+  display: inline-block;
+  background-color: #000000;
+  margin: auto;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.8rem;
+  border-radius: 0.2rem;
+  margin-right: 0.5rem;
+  user-select: none;
+  margin-bottom: 0.5rem;
+}
 
-.news-entry .date {
+.news-entry .date, .author {
     font-weight: bold;
     text-decoration: underline;
     margin-bottom: 0.5rem;
@@ -337,11 +320,17 @@ option {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-.news-entry img.news-image {
+.news-entry img {
+    image-rendering: auto;
+    object-fit: contain;
+    overflow: hidden;
+    width: 100%;
+    height: 80%;
     max-width: 100%;
-    margin-top: 0.8rem;
-    border-radius: 0.4rem;
-    box-shadow: 0 0 0.5rem rgba(0, 0, 0, 0.2);
+    max-height: 100%;
+    background-color: #0005;
+    border-radius: 1rem;
+    filter: drop-shadow(0 0 0.5rem rgb(0,0,0,0.5));
 }
 
 /* Tipos de noticias */

@@ -1,29 +1,23 @@
-// core/tray.js
 const { Tray, Menu, nativeImage, app } = require("electron");
-const path = require("path");
+const { loadIcon } = require("./loadIcon");
 
 function createTray(config, getWin, createMainWindow) {
-  /* ---------- icono ---------- */
-  const iconPath = path.join(__dirname, "icon.ico");
-  let trayIcon   = nativeImage.createFromPath(iconPath);
+  const iconPath = loadIcon("tray", "StepLauncher32x32");
+  let trayIcon = nativeImage.createFromPath(iconPath);
 
   if (!trayIcon || trayIcon.isEmpty()) {
-    console.warn("⚠️ No se pudo cargar icon.ico; se usará un icono vacío.");
+    console.warn("⚠️ No se pudo cargar icono de tray:", iconPath);
     trayIcon = nativeImage.createEmpty();
-  } else {
-    trayIcon = trayIcon.resize({ width: 16, height: 16 });
   }
 
   const tray = new Tray(trayIcon);
   tray.setToolTip("StepLauncher");
 
-  /* ---------- helpers ---------- */
   const ensureWindow = () => {
     const win = getWin();
     return win && !win.isDestroyed() ? win : createMainWindow(config);
   };
 
-  /* ---------- menú contextual ---------- */
   const contextMenu = Menu.buildFromTemplate([
     {
       label: "Mostrar StepLauncher",
@@ -67,7 +61,6 @@ function createTray(config, getWin, createMainWindow) {
 
   tray.setContextMenu(contextMenu);
 
-  /* ---------- clic izquierdo: toggle ---------- */
   tray.on("click", () => {
     const w = ensureWindow();
     w.isVisible() ? w.hide() : w.show();

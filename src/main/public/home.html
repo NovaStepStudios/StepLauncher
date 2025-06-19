@@ -12,7 +12,6 @@
     <link rel="preconnect" href="../render/css/menu.css">
     <!-- Load -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Cal+Sans&family=Comfortaa:wght@300..700&family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../render/css/menu.css">
     <!-- App -->
     <link rel="icon" href="../assets/icon.ico">
@@ -27,13 +26,13 @@
         <div class="Buttons">
             <div class="window-controls">
                 <button id="minimize-btn" title="Minimizar">
-                  <span class="material-icons">remove</span>
+                    <img src="../assets/svg/remove.svg">
                 </button>
                 <button id="maximize-btn" title="Maximizar">
-                  <span class="material-icons" id="maximize-icon" style="font-size: 1.2rem;">check_box_outline_blank</span>
+                    <img src="../assets/svg/window-2.svg">
                 </button>
                 <button id="close-btn" title="Cerrar">
-                  <span class="material-icons">close</span>
+                    <img src="../assets/svg/close.svg">
                 </button>
               </div>                  
         </div>
@@ -43,25 +42,21 @@
             <div class="SideBar">
                 <div class="SideBarItem" id="SettingsItem">
                     <h3>Opciones</h3>
-                    <span class="material-icons">settings</span>
-                </div>
-                <div class="SideBarItem" id="InstancieItem">
-                    <h3>Instancias</h3>
-                    <span class="material-icons">storage</span>
+                    <img src="../assets/svg/settings.svg" alt="Settings">
                 </div>
                 <div class="SideBarItem" id="DownloadItem">
                     <h3>Descarga</h3>
-                    <span class="material-icons">download</span>
+                    <img src="../assets/svg/download.svg" alt="Download">
                 </div>
                 <div class="SideBarItem" id="PlayItem">
                     <h3>Jugar</h3>
-                    <span class="material-icons">sports_esports</span>
+                    <img src="../assets/svg/game.svg" alt="Play">
                 </div>
                 <div class="DownloadProgress" id="DownloadProgressElement" style="display: none;">
                     <span class="loader"></span>
                     <img src="../assets/img/minecraft.png" alt="MC">
                     <h4 id="TextDownload"></h4>
-                    <span class="material-icons" id="downloadIcon">download</span>
+                    <img id="downloadIcon" src="../assets/svg/download.svg">
                 </div>
                 <div class="Account">
                     <canvas id="HeadModel"></canvas>
@@ -85,9 +80,15 @@
     </script>
     <script src="../render/js/home.js" type="module"></script>
     <script>
+        window.addEventListener("message", (event) => {
+            const { type, url } = event.data || {};
+            if (type === "openLink" && typeof url === "string") {
+                window.electronAPI?.openLink(url);
+            }
+        });
         const minimizeBtn  = document.getElementById("minimize-btn"),
             maximizeBtn  = document.getElementById("maximize-btn"),
-            maximizeIcon = document.getElementById("maximize-icon"),
+            maximizeIcon = maximizeBtn.querySelector("img"),
             closeBtn = document.getElementById("close-btn");
         minimizeBtn.addEventListener("click", () =>
             window.windowControls.minimize()
@@ -100,9 +101,9 @@
             window.windowControls.close()
         );
         window.windowControls.onMaximizedState(isMaximized => {
-            maximizeIcon.textContent = isMaximized
-            ? "check_box_outline_blank"
-            : "filter_none";
+            maximizeIcon.src = isMaximized
+                ? "../assets/svg/window-2.svg"
+                : "../assets/svg/window-1.svg";
         });
         window.windowControls.requestMaximizedState();
     </script>
